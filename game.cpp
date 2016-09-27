@@ -13,7 +13,7 @@ class Chess
 {
 private:
 	int x, y;//x,y分别棋子在棋盘上的横坐标和纵坐标，左上为(1,1),右下为(8，8)
-	int last_x, last_y,last_s;
+	int last_x, last_y, last_s;
 	int status;//status表示棋子的状态,0表示死亡，1表示属于甲方，2表示属于乙方
 	char pos;//pos表示棋子的身份，用大写字母的K,Q,B,N,R,P表示
 	int psb;
@@ -37,6 +37,7 @@ public:
 	int getPsb() { return psb; }
 	//设置信息的函数
 	void setLastXY(int x, int y) { last_x = x, last_y = y; }
+	void setLastXYS() { last_x = x, last_y = y, last_s = status; }
 	void setLastS(int s) { last_s = s; }
 	void setPsb(int p) { psb = p; }
 	void setStatus(int s) { status = s; }
@@ -84,7 +85,7 @@ vector <pair<int, int>> v;
 //chees_v用于保存棋盘上所有棋子继承对象数组的头指针，用于析构时的delete
 vector <Chess*> chess_v;
 //play_chess分别储存了双方存活的棋子
-list <Chess*> player_chess[2]; 
+list <Chess*> player_chess[2];
 //importance映射，存储对各棋子的估值
 vector<Chess*> dead_chess;
 map <char, int> importance;
@@ -131,7 +132,7 @@ public:
 	void set_checkstate(int ck) { check_state = ck; }
 	void move_chess(int x1, int y1, int x2, int  y2);
 	void undo_chess(int tx, int ty);
-	bool dfs(int dep, int st,int score);
+	bool dfs(int dep, int st, int score);
 	Chess* naive_ai_move(int status);
 	Chess* simple_ai_move(int status);
 	Chess* normal_ai_move(int st);
@@ -212,7 +213,7 @@ public:
 		Chess::setXY(x, y);
 	}
 	bool check(bool bo);
-	void moveto(int mx,int my);
+	void moveto(int mx, int my);
 	void Promotion();
 };
 //各个棋类的静态成员，用于储存各棋的走法。
@@ -327,7 +328,7 @@ bool Queen::moveable(int mx, int my)
 	if ((mx - tx)*(my - ty) > 0)
 	{
 		for (int i = minx + 1; i < maxx; i++)
-			if (cmap[i][i-minx+miny]->getStatus() != 0)
+			if (cmap[i][i - minx + miny]->getStatus() != 0)
 				return false;
 		return true;
 	}
@@ -452,7 +453,7 @@ bool Bishop::moveable(int mx, int my)
 bool Bishop::check(bool bo)
 {
 	int tx, ty;
-	bool flag =0;
+	bool flag = 0;
 	int tpsb = 0;
 	v.clear();
 	for (int i = 0; i < 4; i++)
@@ -517,6 +518,8 @@ void Pawn::moveto(int mx, int my)
 {
 	int tx = getX();
 	int ty = getY();
+	cmap[mx][my]->setLastXYS();
+	cmap[mx][my]->setXY(tx, ty);
 	if (cmap[mx][my]->getStatus() != 0)
 		player_chess[cmap[mx][my]->getStatus() - 1].remove(cmap[mx][my]);
 	swap(cmap[mx][my], cmap[tx][ty]);
@@ -606,7 +609,7 @@ bool Chess::safe(int mx, int my)
 {
 	if (mx == x&&my == y)
 		return false;
-	if (mx<1 || mx>8 || my<1 || my>8)
+	if (mx < 1 || mx>8 || my < 1 || my>8)
 		return false;
 	if (cmap[mx][my]->getStatus() != this->getStatus())
 		return true;
@@ -615,11 +618,10 @@ bool Chess::safe(int mx, int my)
 }
 void Chess::moveto(int mx, int my)
 {
+	cmap[mx][my]->setLastXYS();
 	cmap[mx][my]->setXY(x, y);
 	if (cmap[mx][my]->getStatus() != 0)
-	{
 		player_chess[cmap[mx][my]->getStatus() - 1].remove(cmap[mx][my]);
-	}
 	swap(cmap[mx][my], cmap[x][y]);
 	cmap[x][y]->setStatus(0);
 	x = mx;
@@ -661,7 +663,7 @@ void Game::wel_init()
 	memset(mmap, -1, sizeof(mmap));
 	for (int i = 200; i <= 440; i++)
 		for (int j = 280; j <= 440; j++)
-			mmap[i][j] = j/40-6;
+			mmap[i][j] = j / 40 - 6;
 
 }
 void Game::chess_init()
@@ -700,7 +702,9 @@ void Game::chess_init()
 	for (int i = 0; i < 8; i++)
 	{
 		pawn[i].setXYS(2, i + 1, 1);
+		pawn[i].setLastXYS();
 		pawn[i + 8].setXYS(7, i + 1, 2);
+		pawn[i + 8].setLastXYS();
 		cmap[2][i + 1] = &pawn[i];
 		cmap[7][i + 1] = &pawn[i + 8];
 		player_chess[0].push_back(&pawn[i]);
@@ -708,12 +712,20 @@ void Game::chess_init()
 	}
 	for (int i = 0; i < 2; i++)
 	{
+		king[i].setLastXYS();
+		queen[i].setLastXYS();
+		rook[i].setLastXYS();
+		rook[i + 2].setLastXYS();
+		knight[i].setLastXYS();
+		knight[i + 2].setLastXYS();
+		bishop[i].setLastXYS();
+		bishop[i + 2].setLastXYS();
 		player_chess[0].push_back(&rook[i]);
 		player_chess[0].push_back(&knight[i]);
 		player_chess[0].push_back(&bishop[i]);
-		player_chess[1].push_back(&rook[i+2]);
-		player_chess[1].push_back(&knight[i+2]);
-		player_chess[1].push_back(&bishop[i+2]);
+		player_chess[1].push_back(&rook[i + 2]);
+		player_chess[1].push_back(&knight[i + 2]);
+		player_chess[1].push_back(&bishop[i + 2]);
 	}
 	player_chess[0].push_back(&king[0]);
 	player_chess[0].push_back(&queen[0]);
@@ -788,7 +800,7 @@ void Game::chess_clear()
 }
 void Game::extra_clear()
 {
-	
+
 }
 void Game::select(int tx, int ty)
 {
@@ -844,22 +856,21 @@ bool Game::check_check()
 	clear_check();
 	return false;
 }
-void Game::move_chess(int x1,int y1,int x2,int  y2)
+void Game::move_chess(int x1, int y1, int x2, int  y2)
 {
-	cmap[x1][y1]->setLastS(cmap[x2][y2]->getStatus());
-	cmap[x1][y1]->setLastXY(x1, y1);
 	cmap[x1][y1]->moveto(x2, y2);
 	cover(x1, y1);
 	cmap[x2][y2]->draw();
 }
-void Game::undo_chess(int tx,int ty)
+void Game::undo_chess(int tx, int ty)
 {
 	int lx = cmap[tx][ty]->getLastX();
 	int ly = cmap[tx][ty]->getLastY();
 	int ls = cmap[tx][ty]->getLastS();
+	cmap[tx][ty]->setXYS(lx, ly, ls);
+	cmap[lx][ly]->setXY(tx, ty);
 	swap(cmap[tx][ty], cmap[lx][ly]);
-	if (ls != 0)
-		cmap[lx][ly]->setStatus(ls);
+
 }
 Chess* Game::player_move(int st)
 {
@@ -937,14 +948,14 @@ Chess* Game::player_move(int st)
 	//cmap[t3][t4]->draw();
 	return cmap[t3][t4];
 }
-Chess* Game::naive_ai_move(int status) 
+Chess* Game::naive_ai_move(int status)
 {
 	int t1, t2;
 	vector<Chess*>pits;
 	for (list <Chess*>::iterator it = player_chess[status - 1].begin(); it != player_chess[status - 1].end(); it++)
 	{
 		(*it)->check(1);
-		if(v.size()!=0)
+		if (v.size() != 0)
 			pits.push_back(*it);
 	}
 	srand(time(0));
@@ -960,9 +971,9 @@ Chess* Game::naive_ai_move(int status)
 }
 Chess* Game::simple_ai_move(int status)
 {
-	Chess* maxf,*temp;
+	Chess* maxf, *temp;
 	int maxt;
-	int score,maxs=0;
+	int score, maxs = 0;
 	int t = 0;
 	for (list <Chess*>::iterator it = player_chess[status - 1].begin(); it != player_chess[status - 1].end(); it++)
 	{
@@ -988,8 +999,8 @@ Chess* Game::simple_ai_move(int status)
 	{
 		game_end = 1;
 	}
-	cover(maxf->getX(),maxf->getY());
-	maxf->moveto(v[maxt].first,v[maxt].second);
+	cover(maxf->getX(), maxf->getY());
+	maxf->moveto(v[maxt].first, v[maxt].second);
 	cmap[v[maxt].first][v[maxt].second]->draw();
 	setcolor(EGERGB(0xff, 0xff, 0xff));
 	return cmap[v[maxt].first][v[maxt].second];
@@ -998,74 +1009,74 @@ int max_score = 0;
 Chess* maxc;
 int maxi;
 
-bool Game::dfs(int st, int dep,int score)
+bool Game::dfs(int st, int dep, int score)
 {
-	int t1, t2,sc;
-	bool flag,li;
+
+	int t1, t2, sc;
+	bool flag = 0, li;
 	if (dep == 0)
 	{
+		int t = 0;
 		for (list <Chess*>::iterator it = player_chess[st - 1].begin(); it != player_chess[st - 1].end(); it++)
 		{
-			if ((*it)->getPsb() > 0)
+			(*it)->check(1);
+			t1 = (*it)->getX();
+			t2 = (*it)->getY();
+			for (uint i = 0; i < v.size(); i++)
 			{
-				t1 = (*it)->getX();
-				t2 = (*it)->getY();
-				(*it)->check(1);
-				for (uint i = 0; i < v.size(); i++)
+				sc = score;
+				flag = 0;
+				if (cmap[v[i].first][v[i].second]->getStatus())
 				{
-					sc = score;
-					flag = 0;
-					if (!cmap[v[i].first][v[i].second]->getStatus())
-					{
-						flag = 1;
-						dead_chess.push_back(cmap[v[i].first][v[i].second]);
-						sc = score + importance[cmap[v[i].first][v[i].second]->getPos()];
-					}
-					cmap[t1][t2]->moveto(v[i].first, v[i].second);
-					if (dfs(st, dep+1, sc))
-					{
-						maxc = *it;
-						maxi = i;
-					}
-					if (flag)
-						dead_chess.pop_back();
-					undo_chess(t1, t2);
-
+					flag = 1;
+					dead_chess.push_back(cmap[v[i].first][v[i].second]);
+					sc = score + importance[cmap[v[i].first][v[i].second]->getPos()];
 				}
+				cmap[t1][t2]->moveto(v[i].first, v[i].second);
+				if (dfs(st, dep + 1, sc))
+				{
+					maxc = *it;
+					xyprintf(0, t++* 10, "%c", (*it)->getPos());
+					maxi = i;
+				}
+				if (flag)
+					dead_chess.pop_back();
+				undo_chess(t1, t2);
 
 			}
+
+
 		}
 		return false;
-	}	
+	}
 	if (dep == 1)
 	{
-		for (list <Chess*>::iterator it = player_chess[2-st ].begin(); it != player_chess[2-st].end(); it++)
+		for (list <Chess*>::iterator it = player_chess[2 - st].begin(); it != player_chess[2 - st].end(); it++)
 		{
 			for (uint i = 0; i < dead_chess.size(); i++)
 			{
-				if ((*it)->getX()==dead_chess[i]->getX()&&(*it)->getY()==dead_chess[i]->getY())
+				if ((*it)->getX() == dead_chess[i]->getX() && (*it)->getY() == dead_chess[i]->getY())
 					continue;
 			}
 			(*it)->check(1);
 			t1 = (*it)->getX();
 			t2 = (*it)->getY();
-			(*it)->check(1);
 			for (uint i = 0; i < v.size(); i++)
 			{
 				sc = score;
-					flag = 0;
-					if (!cmap[v[i].first][v[i].second]->getStatus())
-					{
-						flag = 1;
-						dead_chess.push_back(cmap[v[i].first][v[i].second]);
-						sc = score - importance[cmap[v[i].first][v[i].second]->getPos()];
-					}
-					cmap[t1][t2]->moveto(v[i].first, v[i].second);
-					li = dfs(st, dep+1, sc);
-					if (flag)
-						dead_chess.pop_back();
-					undo_chess(t1, t2);
-					return li;
+				flag = 0;
+				if (cmap[v[i].first][v[i].second]->getStatus())
+				{
+					flag = 1;
+					dead_chess.push_back(cmap[v[i].first][v[i].second]);
+					sc = score - importance[cmap[v[i].first][v[i].second]->getPos()]*2;
+				}
+				cmap[t1][t2]->moveto(v[i].first, v[i].second);
+				li = dfs(st, dep + 1, sc);
+				if (flag)
+					dead_chess.pop_back();
+				undo_chess(t1, t2);
+				return li;
 			}
 		}
 	}
@@ -1081,17 +1092,16 @@ bool Game::dfs(int st, int dep,int score)
 			(*it)->check(1);
 			t1 = (*it)->getX();
 			t2 = (*it)->getY();
-			(*it)->check(1);
 			for (uint i = 0; i < v.size(); i++)
 			{
 				sc = score;
 				flag = 0;
-				if (!cmap[v[i].first][v[i].second]->getStatus())
+				if (cmap[v[i].first][v[i].second]->getStatus())
 				{
 					flag = 1;
 					sc = score + importance[cmap[v[i].first][v[i].second]->getPos()];
 				}
-				if (sc > max_score)
+				if (sc >= max_score)
 				{
 					max_score = sc;
 					return true;
@@ -1100,7 +1110,7 @@ bool Game::dfs(int st, int dep,int score)
 			}
 		}
 	}
-	
+
 }
 Chess* Game::normal_ai_move(int st)
 {
@@ -1112,21 +1122,21 @@ Chess* Game::normal_ai_move(int st)
 int Game::welcome()
 {
 	wel_init();
-	setfont(70, 50, "Microsoft YaHei UI Light"); 
+	setfont(70, 50, "Microsoft YaHei UI Light");
 	xyprintf(80, 100, "Chess123");
 	//rectangle(200, 280, 440, 440);
 	for (int i = 0; i <= 240; i++)
 	{
-		putpixel(200+i, 280, EGERGB(0xff, 0xff, 0xff));
-		putpixel(200+i,440, EGERGB(0xff, 0xff, 0xff));
-		putpixel(200, 280 + i * 2 / 3,EGERGB(0xff,0xff,0xff));
+		putpixel(200 + i, 280, EGERGB(0xff, 0xff, 0xff));
+		putpixel(200 + i, 440, EGERGB(0xff, 0xff, 0xff));
+		putpixel(200, 280 + i * 2 / 3, EGERGB(0xff, 0xff, 0xff));
 		putpixel(440, 280 + i * 2 / 3, EGERGB(0xff, 0xff, 0xff));
 		//Sleep(1);
 	}
 	for (int i = 0; i < 240; i++)
 	{
 		putpixel(200 + i, 320, EGERGB(0xff, 0xff, 0xff));
-		putpixel(440-i, 360, EGERGB(0xff, 0xff, 0xff));
+		putpixel(440 - i, 360, EGERGB(0xff, 0xff, 0xff));
 		putpixel(200 + i, 400, EGERGB(0xff, 0xff, 0xff));
 		//Sleep(1);
 	}
@@ -1137,7 +1147,7 @@ int Game::welcome()
 	xyprintf(290, 408, "Exit");
 	mouse_msg mouse;
 	int tmp;
-	for (;; delay_jfps(60)) 
+	for (;; delay_jfps(60))
 	{
 		while (mousemsg())
 		{
@@ -1160,13 +1170,13 @@ void Game::good_game(Chess*tc)
 	int tx = tc->getX(), ty = tc->getY();
 	for (i = 0; i <= 640; i++)
 	{
-		fillellipse(ty*40+140, tx*40+60, i, i);
+		fillellipse(ty * 40 + 140, tx * 40 + 60, i, i);
 		Sleep(5);
 	}
 }
 void Game::play(int mode)
 {
-	Chess* (Game::*func)(int );
+	Chess* (Game::*func)(int);
 	if (mode == 1)
 		func = &Game::player_move;
 	else if (mode == 2)
@@ -1182,10 +1192,8 @@ void Game::play(int mode)
 	{
 		setfont(10, 8, "Consolas");
 		xyprintf(500, 450, "Player1");
-		//tc = player_move(2);
-		tc = naive_ai_move(2);
-		Sleep(200);
-		//xyprintf(0, 400, "%d %d %d", tc->getLastS(),tc->getLastX(), tc->getLastY());
+		tc = player_move(2);
+		Sleep(300);
 		check_check();
 		if (game_end)
 			break;
@@ -1193,9 +1201,8 @@ void Game::play(int mode)
 		setfont(10, 8, "Consolas");
 		xyprintf(500, 50, "Player2");
 		tc = normal_ai_move(1);
-		Sleep(200);
-		//tc = (this->*func)(1);
-		//xyprintf(0, 400, "%d %d %d", tc->getLastS(),tc->getLastX(), tc->getLastY());
+		//tc = naive_ai_move(1);
+		Sleep(300);
 		check_check();
 		if (game_end)
 			break;
@@ -1209,7 +1216,7 @@ void Game::test()
 {
 	game_init();
 	good_game(cmap[1][1]);
-} 
+}
 int main()
 {
 	Game newgame;
