@@ -1,4 +1,19 @@
 #include<graphics.h>
+/*EGE是windows下的简易图形库，介绍一下程序中使用的主要函数。
+*initgraph：初始化绘图环境，设置绘图环境大小
+*closegraph:关闭绘图环境
+*cleardevice：清屏，用背景色填充绘图环境
+*setbkcolor:设置背景色
+*setcolor:设置绘图颜色（线条和文字）
+*setfillcolor:设置填充颜色
+*setfont:设置字体大小和字体样式
+*line：绘制直线
+*bar:绘制填充矩形
+*rectangle:绘制空心矩形
+*putpixel:绘制像素点
+*xyprintf：绘图界面的输出函数
+*outtextxy：输出字符
+*/
 #include<ctime>
 #include<vector>
 #include<stack>
@@ -8,13 +23,12 @@
 using namespace std;
 typedef unsigned int uint;
 typedef void(*func)();
-bool game_end;
 
-class Chess
+class Chess//抽象类
 {
 private:
 	int x, y;//x,y分别棋子在棋盘上的横坐标和纵坐标，左上为(1,1),右下为(8，8)
-	int last_x, last_y, last_s;
+	int last_x, last_y, last_s;//
 	int status;//status表示棋子的状态,0表示死亡，1表示属于甲方，2表示属于乙方
 	char pos;//pos表示棋子的身份，用大写字母的K,Q,B,N,R,P表示
 	bool player;
@@ -62,16 +76,13 @@ public:
 		outtextxy(y * 40 + 125, x * 40 + 41, pos);
 		setcolor(EGERGB(0xff, 0xff, 0xff));
 	}
-	//safe函数判断移动的目标区域是否超出棋盘范围
+	//safe函数判断移动的目标区域是否超出棋盘范围或是否有己方棋子
 	bool safe(int mx, int my);
 	//highlight函数用于用白色框表示出所选中的棋子
 	void highlight(int mx, int my);
 	//虚函数movoto，用于后台棋子的移动
-
 	virtual void moveto(int mx, int my);
-	//moveto函数的重载
-	void moveto(Chess* cp);
-	//check函数
+	//check函数,bo为1时把棋子所有可能走到的位置保存到一个vector内
 	virtual bool check(bool bo) = 0;
 	//moveable函数用于判断目标位置是否为空，或是否有对方棋子，是否符合该棋子走法
 	virtual bool moveable(int mx, int my) = 0;
@@ -93,7 +104,8 @@ map <char, int> flex;
 class Game
 {
 private:
-	int check_state;
+	bool check_state;
+	bool game_end;
 	bool ai;
 public:
 	Game() {
@@ -111,12 +123,13 @@ public:
 		extra_init();
 	}
 	void chess_clear();
-	void extra_clear();
 	void player_move(int st);
+	//绘制棋子的图标
 	void draw(int tx, int ty, char c) {
 		setfont(37, 30, "Consolas");
 		outtextxy(ty * 40 + 125, tx * 40 + 41, c);
 	}
+	//用背景色覆盖棋子的图标
 	void cover(int tx, int ty) {
 		bar(ty * 40 + 121, tx * 40 + 41, ty * 40 + 160, tx * 40 + 80);
 	}
@@ -130,7 +143,7 @@ public:
 	void set_checkstate(int ck) { check_state = ck; }
 	void move_chess(int x1, int y1, int x2, int  y2);
 	void undo_chess(int tx, int ty);
-	void dfs(int dep, int st, int score);
+	bool dfs(int dep, int st, int score);
 	void naive_ai_move(int status);
 	void simple_ai_move(int status);
 	void normal_ai_move(int st);
@@ -198,6 +211,7 @@ public:
 	bool moveable(int mx, int my);
 	bool check(bool bo);
 };
+//“士兵”类
 class Pawn :public Chess
 {
 private:
@@ -211,10 +225,12 @@ public:
 		Chess::setXY(x, y);
 	}
 	bool check(bool bo);
+	//考虑到士兵走到最后一行时会有“升变”，所以重载了moveto函数
 	void moveto(int mx, int my);
+	//用于升变的函数
 	void Promotion();
 };
-//各个棋类的静态成员，用于储存各棋的走法。
+//各个棋类的静态成员，用于储存各棋的走法
 const int Rook::nextx[4] = { 1,-1,0,0 };
 const int Rook::nexty[4] = { 0,0,1,-1 };
 const int Pawn::nextx[6] = { 1,1,1,-1,-1,-1 };
@@ -239,6 +255,7 @@ bool Knight::moveable(int mx, int my)
 		return true;
 	return false;
 }
+//检查是否能将军，在bo值为true时把所有可行位置保存在v内
 bool Knight::check(bool bo) {
 	int tx, ty;
 	bool flag = 0;
@@ -467,7 +484,6 @@ bool Pawn::moveable(int mx, int my)
 		return false;
 	if (getStatus() == 1)
 	{
-		//xyprintf(0, 150, "%d",cmap[mx][my]->getStatus());
 		if (tx == 2)
 		{
 			if (mx == tx + 2 && my == ty&&cmap[mx][my]->getStatus() == 0)
@@ -517,6 +533,7 @@ void Pawn::Promotion()
 	int tmp = 0;
 	bool flag = 0;
 	Chess* newc;
+	//一般考虑王后的价值更大，所以AI控制的士兵升变时直接选择王后
 	if (this->getPlayer() == 1)
 	{
 		newc = new Queen;
@@ -744,7 +761,6 @@ void Game::chess_init(int mode)
 		for (int j = 1; j <= 8; j++)
 			cmap[i][j] = &empt[i * 8 + j - 25];
 }
-
 void Game::array_init()
 {
 	memset(mmap, -1, sizeof(mmap));
@@ -773,6 +789,7 @@ void Game::map_init()
 		}
 	setcolor(EGERGB(0xff, 0xff, 0xff));
 }
+
 void Game::extra_init()
 {
 	importance['K'] = 1000000;
@@ -797,10 +814,7 @@ void Game::chess_clear()
 	player_chess[1].clear();
 	dead_chess.clear();
 }
-void Game::extra_clear()
-{
-
-}
+//选中所选择的棋子
 void Game::select(int tx, int ty)
 {
 
@@ -812,6 +826,7 @@ void Game::select(int tx, int ty)
 	setfillcolor(EGERGB(0x0, 0x0, 0x0));
 
 }
+//用背景色覆盖选框，作用是“取消选中”所选择的棋子
 void Game::disselect(int tx, int ty)
 {
 	setfillcolor(0xBEBEBE);
@@ -820,6 +835,7 @@ void Game::disselect(int tx, int ty)
 	bar(ty * 40 + 122, tx * 40 + 42, ty * 40 + 159, tx * 40 + 44);
 	bar(ty * 40 + 122, tx * 40 + 77, ty * 40 + 159, tx * 40 + 79);
 }
+//高亮表示坐标为(tx,ty)的棋子
 void Game::highlight(int tx, int ty)
 {
 	setfillcolor(EGERGB(30, 30, 30));
@@ -829,6 +845,7 @@ void Game::highlight(int tx, int ty)
 	bar(ty * 40 + 122, tx * 40 + 77, ty * 40 + 159, tx * 40 + 79);
 	setfillcolor(EGERGB(0x0, 0x0, 0x0));
 }
+//考虑到当自己走棋时，可能将对方的军，也可能让自己被将军，所以直接检查场面上所有棋子，其实是偷懒的写法.. 
 bool Game::check_check()
 {
 	bool flag = 0;
@@ -854,12 +871,17 @@ bool Game::check_check()
 	clear_check();
 	return false;
 }
+//把位于(x1,y1)的棋子移动到(x2,y2)
 void Game::move_chess(int x1, int y1, int x2, int  y2)
 {
+	//后台移动
 	cmap[x1][y1]->moveto(x2, y2);
+	//“擦除”原先所在位置的图像
 	cover(x1, y1);
+	//在新的位置上输出图像
 	cmap[x2][y2]->draw();
 }
+//normalAI深搜回溯时回到初始状态时用到
 void Game::undo_chess(int tx, int ty)
 {
 	int lx = cmap[tx][ty]->getLastX();
@@ -870,11 +892,13 @@ void Game::undo_chess(int tx, int ty)
 	swap(cmap[tx][ty], cmap[lx][ly]);
 
 }
+//玩家落子时的函数
 void Game::player_move(int st)
 {
 	setfont(10, 8, "Consolas");
 	int t1 = 0, t2 = 0, t3 = 0, t4 = 0, tmp = 0, flag = 0;
 	int t = 20;
+	//获得鼠标信息
 	mouse_msg mouse = { 0 };
 	for (;; delay_jfps(60))
 	{
@@ -884,6 +908,7 @@ void Game::player_move(int st)
 			tmp = mmap[mouse.x][mouse.y];
 			if (tmp < 0)
 				continue;
+			//鼠标右击时，取消选择原来选中的棋子
 			if (mouse.is_right() && mouse.is_up())
 			{
 				for (uint i = 0; i < v.size(); i++)
@@ -894,19 +919,15 @@ void Game::player_move(int st)
 			}
 			if (mouse.is_up() && mouse.is_left())
 			{
-				//bar(0, 0, 30, 400);
 				t += 10;
+				//flag为0时，选中被移动的棋子
 				if (!flag)
 				{
-					disselect(t1, t2);
 					t1 = tmp / 10;
 					t2 = tmp % 10;
 					if (cmap[t1][t2]->getStatus() == st)
 					{
 						Game::select(t1, t2);
-						for (uint i = 0; i < v.size(); i++)
-							disselect(v[i].first, v[i].second);
-						v.clear();
 						cmap[t1][t2]->check(true);
 						for (uint i = 0; i < v.size(); i++)
 							highlight(v[i].first, v[i].second);
@@ -914,11 +935,12 @@ void Game::player_move(int st)
 						continue;
 					}
 				}
+				//flag为1时，选中目标位置，选中合法位置后跳出循环
 				if (flag == 1)
 				{
 					t3 = tmp / 10;
 					t4 = tmp % 10;
-					flushmouse();
+					//flushmouse();
 					if (cmap[t1][t2]->moveable(t3, t4))
 					{
 						for (unsigned int i = 0; i < v.size(); i++)
@@ -932,6 +954,7 @@ void Game::player_move(int st)
 		if (flag == 2)
 			break;
 	}
+	//如果吃掉了对方国王，游戏结束
 	if (cmap[t3][t4]->getPos() == 'K')
 	{
 		game_end = 1;
@@ -939,6 +962,7 @@ void Game::player_move(int st)
 	}
 	move_chess(t1, t2, t3, t4);
 }
+//navieAI,随机选择移动的棋子和移动位置.. 
 void Game::naive_ai_move(int status)
 {
 	int t1, t2;
@@ -959,6 +983,7 @@ void Game::naive_ai_move(int status)
 	}
 	move_chess(pits[t1]->getX(), pits[t1]->getY(), v[t2].first, v[t2].second);
 }
+//simpleAI,贪心地选出所有走法中价值最高的。吃掉对方棋子或有更多的走法能够增加价值。
 void Game::simple_ai_move(int status)
 {
 	Chess* maxf, *temp;
@@ -994,15 +1019,16 @@ void Game::simple_ai_move(int status)
 	cmap[v[maxt].first][v[maxt].second]->draw();
 	setcolor(EGERGB(0xff, 0xff, 0xff));
 }
+//normalAI，回溯时会出现问题..还在Debug...
 int max_score = 0;
 Chess* maxc;
 int maxi;
 int num;
-void Game::dfs(int st, int dep, int score)
+bool Game::dfs(int st, int dep, int score)
 {
 
 	int t1, t2, sc;
-	bool flag = 0, li;
+	bool flag = 0, ret;
 	if (dep == 0)
 	{
 		int t = 0;
@@ -1022,23 +1048,26 @@ void Game::dfs(int st, int dep, int score)
 					sc = score + importance[cmap[v[i].first][v[i].second]->getPos()];
 				}
 				cmap[t1][t2]->moveto(v[i].first, v[i].second);
-				dfs(st, dep + 1, sc);
-				maxc = *it;
-				maxi = i;				
+				ret = dfs(st, dep + 1, sc);
+				if (ret)
+				{
+					maxc = *it;
+					maxi = i;
+				}
 				if (flag)
 					dead_chess.pop_back();
 				undo_chess(t1, t2);
 			}
 		}
-		//return false;
 	}
 	if (dep == 1)
 	{
+		ret = 0;
 		for (list <Chess*>::iterator it = player_chess[2 - st].begin(); it != player_chess[2 - st].end(); it++)
 		{
 			for (uint i = 0; i < dead_chess.size(); i++)
 			{
-				if ((*it)->getX() == dead_chess[i]->getX() && (*it)->getY() == dead_chess[i]->getY())
+				if ((*it) == dead_chess[i])
 					continue;
 			}
 			(*it)->check(1);
@@ -1055,22 +1084,23 @@ void Game::dfs(int st, int dep, int score)
 					sc = score - importance[cmap[v[i].first][v[i].second]->getPos()]*2;
 				}
 				cmap[t1][t2]->moveto(v[i].first, v[i].second);
-				dfs(st, dep + 1, sc);
+				ret |= dfs(st, dep + 1, sc);
 				if (flag)
 					dead_chess.pop_back();
 				undo_chess(t1, t2);
-				//return li;
 			}
 		}
+		return ret;
 	}
 	else
 	{
+		ret = 0;
 		num++;
 		for (list <Chess*>::iterator it = player_chess[2 - st].begin(); it != player_chess[2 - st].end(); it++)
 		{
 			for (int i = 0; i < dead_chess.size(); i++)
 			{
-				if ((*it)->getX() == dead_chess[i]->getX() && (*it)->getY() == dead_chess[i]->getY())
+				if ((*it) == dead_chess[i])
 					continue;
 			}
 			(*it)->check(1);
@@ -1087,14 +1117,13 @@ void Game::dfs(int st, int dep, int score)
 				}
 				if (sc >= max_score)
 				{
+					ret = 1;
 					max_score = sc;
 				}
-				//return false;
 			}
 		}
-		return;
+		return ret;
 	}
-
 }
 void Game::normal_ai_move(int st)
 {
@@ -1105,6 +1134,7 @@ void Game::normal_ai_move(int st)
 	move_chess(maxc->getX(), maxc->getY(), v[maxi].first, v[maxi].second);
 	//return cmap[v[maxi].first][v[maxi].second];
 }
+//最初的菜单界面
 int Game::welcome()
 {
 	wel_init();
@@ -1112,7 +1142,8 @@ int Game::welcome()
 	setbkcolor(0xBEBEBE);
 	setcolor(BLACK);
 	setfont(70, 50, "Microsoft YaHei UI Light");
-	xyprintf(80, 100, "Chess123");
+	xyprintf(100, 100, "Chess123");
+	//实现线框的动画效果
 	for (int i = 0; i <= 240; i++)
 	{
 		putpixel(200 + i, 240, BLACK);
@@ -1133,12 +1164,13 @@ int Game::welcome()
 	xyprintf(295, 248, "demo");
 	xyprintf(300, 288, "1v1");
 	xyprintf(250, 328, "1vNaiveCom");
-	xyprintf(250, 368, "1vSimpleCom");
-	xyprintf(250, 408, "1vNormalCom");
+	xyprintf(240, 368, "1vSimpleCom");
+	xyprintf(240, 408, "1vNormalCom");
 	setfont(10, 8, "Consolas");
 	xyprintf(280, 428, "(unavailable)");
 	mouse_msg mouse;
 	int tmp;
+	//同样鼠标点击区域进行了映射
 	for (;; delay_jfps(60))
 	{
 		while (mousemsg())
@@ -1154,19 +1186,23 @@ int Game::welcome()
 			}
 		}
 	}
-
 }
+//游戏结束画面
 bool Game::good_game()
 {
-	
 	srand(time(0));
 	int p = 0;
 	setcolor(0xBEBEBE);
+	//擦除棋盘
 	for (int i = 160; i<=640; i++) 
 	{
 		line(i, 0, i, 480);
 		Sleep(1);
 	}
+	setcolor(WHITE);
+	setfont(60, 40, "Consolas");
+	xyprintf(140, 200, "Checkmate!");
+	//实现线框的动画效果
 	for (int i = 0; i <= 200; i++)
 	{
 		putpixel(540 + i, 400, EGERGB(0xff, 0xff, 0xff));
@@ -1176,11 +1212,13 @@ bool Game::good_game()
 		putpixel(638, 400 + i * 2 / 5, EGERGB(0xff, 0xff, 0xff));
 		Sleep(1);
 	}
+	
 	setcolor(BLACK);
 	setfont(20, 16, "Consolas");
 	xyprintf(550, 410, "Retry");
 	xyprintf(560, 450, "Exit");
 	mouse_msg mouse;
+	//菜单选项较少所以直接用if语句判断..
 	for (;; delay_jfps(60))
 	{
 		while (mousemsg())
@@ -1196,9 +1234,10 @@ bool Game::good_game()
 		}
 	}
 }
-	
+//控制游戏进行的函数
 void Game::play(int mode)
 {
+	//用了函数指针，方便不同模式下函数的调用
 	void (Game::*move1)(int);
 	void (Game::*move2)(int);
 	game_init(mode);
@@ -1248,6 +1287,7 @@ void Game::play(int mode)
 			bar(500, 50, 600, 80);
 			setfont(10, 8, "Consolas");
 		}
+		//选中"retry"后释放内存，重新申请对象，重置指针
 		if (good_game())
 		{
 			chess_clear();
@@ -1258,11 +1298,11 @@ void Game::play(int mode)
 			break;
 	}
 }
+//Debug用..
 void Game::test()
 {
 	chess_init(2);
-	chess_clear();
-	chess_init(2);
+	good_game();
 	while (1);
 }
 
@@ -1271,9 +1311,6 @@ int main()
 	Game newgame;
 	delay(60);
 	initgraph(640, 480);
-	setfont(37, 30, "Consolas");
-	//newgame.test();
 	newgame.play(newgame.welcome());
-	//newgame.play(1);
 	closegraph();
 }
