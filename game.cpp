@@ -650,13 +650,13 @@ void Game::chess_init(int mode)
 	switch (mode)
 	{
 		case 1:
-			p1 = 0, p2 = 0;
-			break;
-		case 2:
 			p1 = 1, p2 = 1;
 			break;
+		case 2:
+			p1 = 0, p2 = 0;
+			break;
 		default:
-			p1 = 1, p2 = 0;
+			p1 = 0, p2 = 1;
 	}
 	Rook* rook = new Rook[4];
 	Knight* knight = new Knight[4];
@@ -744,6 +744,7 @@ void Game::chess_init(int mode)
 		for (int j = 1; j <= 8; j++)
 			cmap[i][j] = &empt[i * 8 + j - 25];
 }
+
 void Game::array_init()
 {
 	memset(mmap, -1, sizeof(mmap));
@@ -791,6 +792,10 @@ void Game::chess_clear()
 {
 	for (uint i = 0; i < chess_v.size(); i++)
 		delete chess_v[i];
+	chess_v.clear();
+	player_chess[0].clear();
+	player_chess[1].clear();
+	dead_chess.clear();
 }
 void Game::extra_clear()
 {
@@ -1245,6 +1250,7 @@ void Game::play(int mode)
 		}
 		if (good_game())
 		{
+			chess_clear();
 			game_init(mode);
 			game_end = 0;
 		}
@@ -1254,9 +1260,12 @@ void Game::play(int mode)
 }
 void Game::test()
 {
-	game_init(1);
-	good_game();
+	chess_init(2);
+	chess_clear();
+	chess_init(2);
+	while (1);
 }
+
 int main()
 {
 	Game newgame;
