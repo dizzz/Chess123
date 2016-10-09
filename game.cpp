@@ -1,69 +1,95 @@
-#include<vector>
-#include<list>
 #include<graphics.h>
 #include<ctime>
+#include<vector>
+#include<stack>
+#include<list>
 #include<map>
+#include<cmath>
 using namespace std;
 typedef unsigned int uint;
 typedef void(*func)();
 bool game_end;
+
 class Chess
 {
 private:
-	int x, y, status,psb;
-	char pos;
+	int x, y;//x,y分别棋子在棋盘上的横坐标和纵坐标，左上为(1,1),右下为(8，8)
+	int last_x, last_y, last_s;
+	int status;//status表示棋子的状态,0表示死亡，1表示属于甲方，2表示属于乙方
+	char pos;//pos表示棋子的身份，用大写字母的K,Q,B,N,R,P表示
+	bool player;
 public:
-	Chess(int x = 0, int y = 0, int s = 0, char c = 0)
+	Chess(int x = 0, int y = 0, int s = 0, char c = 0) //构造函数
 	{
 		this->x = x;
 		this->y = y;
 		this->status = s;
 		this->pos = c;
-		this->psb = 0;
 	}
+	//获取数据的函数
 	int getX()const { return x; }
 	int getY()const { return y; }
+	int getLastX() { return last_x; }
+	int getLastY() { return last_y; }
+	int getLastS() { return last_s; }
 	char getPos() const { return pos; }
 	int getStatus() { return status; }
-	int getPsb() { return psb; }
-	void setPsb(int p) { psb = p; }
+	bool getPlayer() { return player; }
+	//设置信息的函数
+	void setPlayer(bool p) { player = p; }
+	void setLastXY(int x, int y) { last_x = x, last_y = y; }
+	void setLastXYS() { last_x = x, last_y = y, last_s = status; }
+	void setLastS(int s) { last_s = s; }
 	void setStatus(int s) { status = s; }
-	void setXY(int x, int y) {
-		this->x = x;
-		this->y = y;
+	void setXY(int tx, int ty) {
+		x = tx,y = ty;
 	}
-	void setXYS(int x, int y, int s)
-	{
-		this->x = x;
-		this->y = y;
-		this->status = s;
-
+	void setXYS(int tx, int ty, int ts)	{
+		x = tx,y = ty,status = ts;
 	}
+	void setXYSP(int tx, int ty, int ts, bool tp) {
+		x = tx, y = ty, status = ts, player = tp;
+	}
+	//draw函数用于在棋盘上打印出棋子的身份，用EGE库实现
 	void draw() {
 		if (!status)
 			return;
 		if (status == 1)
-			setcolor(EGERGB(0xFF, 0x0, 0x0));
+			setcolor(EGERGB(0x0, 0x0, 0x0));
 		else
-			setcolor(EGERGB(0x0, 0xff, 0x0));
+			setcolor(EGERGB(0xff, 0xff, 0xff));
 		setfont(37, 30, "Consolas");
 		outtextxy(y * 40 + 125, x * 40 + 41, pos);
 		setcolor(EGERGB(0xff, 0xff, 0xff));
 	}
+	//safe函数判断移动的目标区域是否超出棋盘范围
 	bool safe(int mx, int my);
+	//highlight函数用于用白色框表示出所选中的棋子
 	void highlight(int mx, int my);
-	//virtual void show() = 0;
+	//虚函数movoto，用于后台棋子的移动
+
 	virtual void moveto(int mx, int my);
+	//moveto函数的重载
 	void moveto(Chess* cp);
+	//check函数
 	virtual bool check(bool bo) = 0;
+	//moveable函数用于判断目标位置是否为空，或是否有对方棋子，是否符合该棋子走法
 	virtual bool moveable(int mx, int my) = 0;
 };
+//基类指针，cmap[i][j]代表棋盘(i,j)处的棋子。
 Chess* cmap[9][9];
+//vector类用于保存需要标示出来的位置
 vector <pair<int, int>> v;
+//chees_v用于保存棋盘上所有棋子继承对象数组的头指针，用于析构时的delete
 vector <Chess*> chess_v;
+//play_chess分别储存了双方存活的棋子
 list <Chess*> player_chess[2];
+//importance映射，存储对各棋子的估值
+vector<Chess*> dead_chess;
 map <char, int> importance;
+//flex映射，储存各种棋子没多一种走法加上的估值
 map <char, int> flex;
+//game类用于控制游戏的进行,各函数的所用在之后的定义中详细说明。
 class Game
 {
 private:
@@ -75,18 +101,18 @@ public:
 	}
 	void wel_init();
 	void array_init();
-	void chess_init();
+	void chess_init(int mode);
 	void map_init();
 	void extra_init();
-	void game_init() {
+	void game_init(int mode) {
 		array_init();
-		chess_init();
+		chess_init(mode);
 		map_init();
 		extra_init();
 	}
 	void chess_clear();
 	void extra_clear();
-	Chess* player_move(int st);
+	void player_move(int st);
 	void draw(int tx, int ty, char c) {
 		setfont(37, 30, "Consolas");
 		outtextxy(ty * 40 + 125, tx * 40 + 41, c);
@@ -102,9 +128,13 @@ public:
 	void disselect(int tx, int ty);
 	int get_checkstate() { return check_state; }
 	void set_checkstate(int ck) { check_state = ck; }
-	Chess* naive_ai_move(int status);
-	Chess* simple_ai_move(int status);
-	void good_game(Chess*);
+	void move_chess(int x1, int y1, int x2, int  y2);
+	void undo_chess(int tx, int ty);
+	void dfs(int dep, int st, int score);
+	void naive_ai_move(int status);
+	void simple_ai_move(int status);
+	void normal_ai_move(int st);
+	bool good_game();
 	void play(int mode);
 	int welcome();
 	void test();
@@ -113,6 +143,7 @@ public:
 		chess_clear();
 	}
 };
+//"骑士"类
 class Knight :public Chess
 {
 private:
@@ -123,6 +154,7 @@ public:
 	bool moveable(int mx, int my);
 	bool check(bool bo);
 };
+//"国王"类
 class King :public Chess
 {
 private:
@@ -133,6 +165,7 @@ public:
 	bool moveable(int mx, int my);
 	bool check(bool bo);
 };
+//“王后”类
 class Queen :public Chess
 {
 private:
@@ -143,6 +176,7 @@ public:
 	bool moveable(int mx, int my);
 	bool check(bool bo);
 };
+//“城堡”类
 class Rook :public Chess
 {
 private:
@@ -153,6 +187,7 @@ public:
 	bool moveable(int mx, int my);
 	bool check(bool bo);
 };
+//“主教"类
 class Bishop :public Chess
 {
 private:
@@ -176,9 +211,10 @@ public:
 		Chess::setXY(x, y);
 	}
 	bool check(bool bo);
-	void moveto(int mx,int my);
+	void moveto(int mx, int my);
 	void Promotion();
 };
+//各个棋类的静态成员，用于储存各棋的走法。
 const int Rook::nextx[4] = { 1,-1,0,0 };
 const int Rook::nexty[4] = { 0,0,1,-1 };
 const int Pawn::nextx[6] = { 1,1,1,-1,-1,-1 };
@@ -191,6 +227,7 @@ const int Bishop::nextx[4] = { 1,1,-1,-1 };
 const int Bishop::nexty[4] = { -1,1,-1,1 };
 const int Knight::nextx[8] = { 1,1,-1,-1,2,2,-2,-2 };
 const int Knight::nexty[8] = { 2,-2,2,-2,1,-1,1,-1 };
+//对游戏区域的映射，用于对鼠标选中区域的判断
 int mmap[640][480];
 bool Knight::moveable(int mx, int my)
 {
@@ -204,7 +241,6 @@ bool Knight::moveable(int mx, int my)
 }
 bool Knight::check(bool bo) {
 	int tx, ty;
-	int tpsb = 0;
 	bool flag = 0;
 	v.clear();
 	for (int i = 0; i < 8; i++)
@@ -213,14 +249,12 @@ bool Knight::check(bool bo) {
 		ty = Chess::getY() + nexty[i];
 		if (moveable(tx, ty))
 		{
-			tpsb++;
 			if (cmap[tx][ty]->getPos() == 'K')
 				flag = 1;
 			if (bo)
 				v.push_back(make_pair(tx, ty));
 		}
 	}
-	setPsb(tpsb);
 	return flag;
 }
 bool King::moveable(int mx, int my)
@@ -239,7 +273,6 @@ bool King::check(bool bo)
 {
 	int tx, ty;
 	bool flag = 0;
-	int tpsb = 0;
 	v.clear();
 	for (int i = 0; i < 8; i++)
 	{
@@ -247,14 +280,12 @@ bool King::check(bool bo)
 		ty = Chess::getY() + nexty[i];
 		if (moveable(tx, ty))
 		{
-			tpsb++;
 			if (bo)
 				v.push_back(make_pair(tx, ty));
 			if (cmap[tx][ty]->getPos() == 'K')
 				flag = 1;
 		}
 	}
-	setPsb(tpsb);
 	return flag;
 }
 bool Queen::moveable(int mx, int my)
@@ -289,7 +320,7 @@ bool Queen::moveable(int mx, int my)
 	if ((mx - tx)*(my - ty) > 0)
 	{
 		for (int i = minx + 1; i < maxx; i++)
-			if (cmap[i][i-minx+miny]->getStatus() != 0)
+			if (cmap[i][i - minx + miny]->getStatus() != 0)
 				return false;
 		return true;
 	}
@@ -307,7 +338,6 @@ bool Queen::check(bool bo)
 {
 	int tx, ty;
 	bool flag = 0;
-	int tpsb = 0;
 	v.clear();
 	for (int i = 0; i < 8; i++)
 	{
@@ -315,7 +345,6 @@ bool Queen::check(bool bo)
 		ty = Chess::getY() + nexty[i];
 		while (moveable(tx, ty))
 		{
-			tpsb++;
 			if (bo)
 				v.push_back(make_pair(tx, ty));
 			if (cmap[tx][ty]->getPos() == 'K')
@@ -324,7 +353,6 @@ bool Queen::check(bool bo)
 			ty += nexty[i];
 		}
 	}
-	setPsb(tpsb);
 	return flag;
 }
 bool Rook::moveable(int mx, int my)
@@ -359,8 +387,6 @@ bool Rook::check(bool bo)
 {
 	int tx, ty;
 	bool flag = 0;
-	int tpsb = 0;
-	v.clear();
 	v.clear();
 	for (int i = 0; i < 4; i++)
 	{
@@ -368,7 +394,6 @@ bool Rook::check(bool bo)
 		ty = Chess::getY() + nexty[i];
 		while (moveable(tx, ty))
 		{
-			tpsb++;
 			if (bo)
 				v.push_back(make_pair(tx, ty));
 			if (cmap[tx][ty]->getPos() == 'K')
@@ -377,7 +402,6 @@ bool Rook::check(bool bo)
 			ty += nexty[i];
 		}
 	}
-	setPsb(tpsb);
 	return flag;
 }
 bool Bishop::moveable(int mx, int my)
@@ -415,8 +439,7 @@ bool Bishop::moveable(int mx, int my)
 bool Bishop::check(bool bo)
 {
 	int tx, ty;
-	bool flag =0;
-	int tpsb = 0;
+	bool flag = 0;
 	v.clear();
 	for (int i = 0; i < 4; i++)
 	{
@@ -424,7 +447,6 @@ bool Bishop::check(bool bo)
 		ty = Chess::getY() + nexty[i];
 		while (moveable(tx, ty))
 		{
-			tpsb++;
 			if (bo)
 				v.push_back(make_pair(tx, ty));
 			if (cmap[tx][ty]->getPos() == 'K')
@@ -433,7 +455,6 @@ bool Bishop::check(bool bo)
 			ty += nexty[i];
 		};
 	}
-	setPsb(tpsb);
 	return flag;
 }
 bool Pawn::moveable(int mx, int my)
@@ -480,6 +501,8 @@ void Pawn::moveto(int mx, int my)
 {
 	int tx = getX();
 	int ty = getY();
+	cmap[mx][my]->setLastXYS();
+	cmap[mx][my]->setXY(tx, ty);
 	if (cmap[mx][my]->getStatus() != 0)
 		player_chess[cmap[mx][my]->getStatus() - 1].remove(cmap[mx][my]);
 	swap(cmap[mx][my], cmap[tx][ty]);
@@ -488,10 +511,21 @@ void Pawn::moveto(int mx, int my)
 	if (mx == 1 || mx == 8)
 		Promotion();
 }
-
 void Pawn::Promotion()
 {
 	int tx = getX(), ty = getY();
+	int tmp = 0;
+	bool flag = 0;
+	Chess* newc;
+	if (this->getPlayer() == 1)
+	{
+		newc = new Queen;
+		newc->setXYS(tx, ty, getStatus());
+		cmap[tx][ty] = newc;
+		chess_v.push_back(newc);
+		player_chess[getStatus() - 1].push_back(newc);
+		return;
+	}
 	setcolor(EGERGB(0xff, 0xff, 0xff));
 	setfont(15, 12, "Consolas");
 	xyprintf(510, 130, "Promorion");
@@ -505,8 +539,6 @@ void Pawn::Promotion()
 	line(540, 240, 580, 240);
 	line(540, 280, 580, 280);
 	mouse_msg mouse = { 0 };
-	int tmp = 0;
-	bool flag = 0;
 	for (;; delay_jfps(60))
 	{
 		while (mousemsg())
@@ -518,7 +550,6 @@ void Pawn::Promotion()
 				setfont(10, 8, "Consolas");
 				if (tmp >= -1)
 					continue;
-				Chess* newc;
 				if (tmp == -2)
 					newc = new Queen;
 				else if (tmp == -3)
@@ -546,14 +577,12 @@ bool Pawn::check(bool bo)
 	int tx, ty;
 	bool flag = 0;
 	v.clear();
-	int tpsb = 0;
 	for (int i = 0; i < 6; i++)
 	{
 		tx = Chess::getX() + nextx[i];
 		ty = Chess::getY() + nexty[i];
 		while (moveable(tx, ty))
 		{
-			tpsb++;
 			if (bo)
 				v.push_back(make_pair(tx, ty));
 			if (cmap[tx][ty]->getPos() == 'K')
@@ -562,14 +591,13 @@ bool Pawn::check(bool bo)
 			ty += nexty[i];
 		}
 	}
-	setPsb(tpsb);
 	return flag;
 }
 bool Chess::safe(int mx, int my)
 {
 	if (mx == x&&my == y)
 		return false;
-	if (mx<1 || mx>8 || my<1 || my>8)
+	if (mx < 1 || mx>8 || my < 1 || my>8)
 		return false;
 	if (cmap[mx][my]->getStatus() != this->getStatus())
 		return true;
@@ -578,21 +606,14 @@ bool Chess::safe(int mx, int my)
 }
 void Chess::moveto(int mx, int my)
 {
+	cmap[mx][my]->setLastXYS();
+	cmap[mx][my]->setXY(x, y);
 	if (cmap[mx][my]->getStatus() != 0)
 		player_chess[cmap[mx][my]->getStatus() - 1].remove(cmap[mx][my]);
 	swap(cmap[mx][my], cmap[x][y]);
 	cmap[x][y]->setStatus(0);
 	x = mx;
 	y = my;
-}
-void Chess::moveto(Chess* cp)
-{
-	if (cp->getStatus() != 0)
-		player_chess[cp->getStatus() - 1].remove(cp);
-	swap(cp, cmap[x][y]);
-	cmap[x][y]->setStatus(0);
-	x = cp->getX();
-	y = cp->getY();
 }
 void Chess::highlight(int mx, int my)
 {
@@ -616,14 +637,27 @@ void Game::clear_check()
 }
 void Game::wel_init()
 {
+
 	memset(mmap, -1, sizeof(mmap));
 	for (int i = 200; i <= 440; i++)
-		for (int j = 280; j <= 440; j++)
-			mmap[i][j] = j/40-6;
+		for (int j = 240; j <= 440; j++)
+			mmap[i][j] = j / 40 - 5;
 
 }
-void Game::chess_init()
+void Game::chess_init(int mode)
 {
+	bool p1, p2;
+	switch (mode)
+	{
+		case 1:
+			p1 = 0, p2 = 0;
+			break;
+		case 2:
+			p1 = 1, p2 = 1;
+			break;
+		default:
+			p1 = 1, p2 = 0;
+	}
 	Rook* rook = new Rook[4];
 	Knight* knight = new Knight[4];
 	Bishop* bishop = new Bishop[4];
@@ -638,27 +672,29 @@ void Game::chess_init()
 	chess_v.push_back(knight);
 	chess_v.push_back(pawn);
 	chess_v.push_back(empt);
-	rook[0].setXYS(1, 1, 1);
-	rook[1].setXYS(1, 8, 1);
-	rook[2].setXYS(8, 1, 2);
-	rook[3].setXYS(8, 8, 2);
-	knight[0].setXYS(1, 2, 1);
-	knight[1].setXYS(1, 7, 1);
-	knight[2].setXYS(8, 2, 2);
-	knight[3].setXYS(8, 7, 2);
-	bishop[0].setXYS(1, 3, 1);
-	bishop[1].setXYS(1, 6, 1);
-	bishop[2].setXYS(8, 3, 2);
-	bishop[3].setXYS(8, 6, 2);
-	king[0].setXYS(1, 4, 1);
-	king[1].setXYS(8, 4, 2);
-	queen[0].setXYS(1, 5, 1);
-	queen[1].setXYS(8, 5, 2);
+	rook[0].setXYSP(1, 1, 1,p1);
+	rook[1].setXYSP(1, 8, 1,p1);
+	rook[2].setXYSP(8, 1, 2,p2);
+	rook[3].setXYSP(8, 8, 2,p2);
+	knight[0].setXYSP(1, 2, 1,p1);
+	knight[1].setXYSP(1, 7, 1,p1);
+	knight[2].setXYSP(8, 2, 2,p2);
+	knight[3].setXYSP(8, 7, 2,p2);
+	bishop[0].setXYSP(1, 3, 1,p1);
+	bishop[1].setXYSP(1, 6, 1,p1);
+	bishop[2].setXYSP(8, 3, 2,p2);
+	bishop[3].setXYSP(8, 6, 2,p2);
+	king[0].setXYSP(1, 4, 1,p1);
+	king[1].setXYSP(8, 4, 2,p2);
+	queen[0].setXYSP(1, 5, 1,p1);
+	queen[1].setXYSP(8, 5, 2,p2);
 
 	for (int i = 0; i < 8; i++)
 	{
-		pawn[i].setXYS(2, i + 1, 1);
-		pawn[i + 8].setXYS(7, i + 1, 2);
+		pawn[i].setXYSP(2, i + 1, 1,p1);
+		pawn[i].setLastXYS();
+		pawn[i + 8].setXYSP(7, i + 1, 2,p2);
+		pawn[i + 8].setLastXYS();
 		cmap[2][i + 1] = &pawn[i];
 		cmap[7][i + 1] = &pawn[i + 8];
 		player_chess[0].push_back(&pawn[i]);
@@ -666,12 +702,20 @@ void Game::chess_init()
 	}
 	for (int i = 0; i < 2; i++)
 	{
+		king[i].setLastXYS();
+		queen[i].setLastXYS();
+		rook[i].setLastXYS();
+		knight[i].setLastXYS();
+		bishop[i].setLastXYS();
+		rook[i + 2].setLastXYS();
+		knight[i + 2].setLastXYS();
+		bishop[i + 2].setLastXYS();
 		player_chess[0].push_back(&rook[i]);
 		player_chess[0].push_back(&knight[i]);
 		player_chess[0].push_back(&bishop[i]);
-		player_chess[1].push_back(&rook[i+2]);
-		player_chess[1].push_back(&knight[i+2]);
-		player_chess[1].push_back(&bishop[i+2]);
+		player_chess[1].push_back(&rook[i + 2]);
+		player_chess[1].push_back(&knight[i + 2]);
+		player_chess[1].push_back(&bishop[i + 2]);
 	}
 	player_chess[0].push_back(&king[0]);
 	player_chess[0].push_back(&queen[0]);
@@ -712,6 +756,10 @@ void Game::array_init()
 }
 void Game::map_init()
 {
+	cleardevice();
+	setfillcolor(0xBEBEBE);
+	setbkcolor(0xBEBEBE);
+	setcolor(BLACK);
 	for (int i = 160; i <= 480; i += 40)
 		line(i, 80, i, 400);
 	for (int i = 80; i <= 400; i += 40)
@@ -735,9 +783,9 @@ void Game::extra_init()
 	flex['K'] = 0;
 	flex['Q'] = 2;
 	flex['R'] = 4;
-	flex['B'] = 8;
-	flex['N'] = 0;
-	flex['P'] = 6;
+	flex['B'] = 3;
+	flex['N'] = 5;
+	flex['P'] = 2;
 }
 void Game::chess_clear()
 {
@@ -746,12 +794,12 @@ void Game::chess_clear()
 }
 void Game::extra_clear()
 {
-	
+
 }
 void Game::select(int tx, int ty)
 {
 
-	setfillcolor(EGERGB(0xff, 0xff, 0xff));
+	setfillcolor(EGERGB(108, 108, 108));
 	bar(ty * 40 + 122, tx * 40 + 42, ty * 40 + 124, tx * 40 + 79);
 	bar(ty * 40 + 157, tx * 40 + 42, ty * 40 + 159, tx * 40 + 79);
 	bar(ty * 40 + 122, tx * 40 + 42, ty * 40 + 159, tx * 40 + 44);
@@ -761,16 +809,15 @@ void Game::select(int tx, int ty)
 }
 void Game::disselect(int tx, int ty)
 {
-	setfillcolor(EGERGB(0x0, 0x0, 0x0));
+	setfillcolor(0xBEBEBE);
 	bar(ty * 40 + 122, tx * 40 + 42, ty * 40 + 124, tx * 40 + 79);
 	bar(ty * 40 + 157, tx * 40 + 42, ty * 40 + 159, tx * 40 + 79);
 	bar(ty * 40 + 122, tx * 40 + 42, ty * 40 + 159, tx * 40 + 44);
 	bar(ty * 40 + 122, tx * 40 + 77, ty * 40 + 159, tx * 40 + 79);
-	setfillcolor(EGERGB(0x0, 0x0, 0x0));
 }
 void Game::highlight(int tx, int ty)
 {
-	setfillcolor(EGERGB(255, 215, 0));
+	setfillcolor(EGERGB(30, 30, 30));
 	bar(ty * 40 + 122, tx * 40 + 42, ty * 40 + 124, tx * 40 + 79);
 	bar(ty * 40 + 157, tx * 40 + 42, ty * 40 + 159, tx * 40 + 79);
 	bar(ty * 40 + 122, tx * 40 + 42, ty * 40 + 159, tx * 40 + 44);
@@ -802,7 +849,23 @@ bool Game::check_check()
 	clear_check();
 	return false;
 }
-Chess* Game::player_move(int st)
+void Game::move_chess(int x1, int y1, int x2, int  y2)
+{
+	cmap[x1][y1]->moveto(x2, y2);
+	cover(x1, y1);
+	cmap[x2][y2]->draw();
+}
+void Game::undo_chess(int tx, int ty)
+{
+	int lx = cmap[tx][ty]->getLastX();
+	int ly = cmap[tx][ty]->getLastY();
+	int ls = cmap[tx][ty]->getLastS();
+	cmap[tx][ty]->setXYS(lx, ly, ls);
+	cmap[lx][ly]->setXY(tx, ty);
+	swap(cmap[tx][ty], cmap[lx][ly]);
+
+}
+void Game::player_move(int st)
 {
 	setfont(10, 8, "Consolas");
 	int t1 = 0, t2 = 0, t3 = 0, t4 = 0, tmp = 0, flag = 0;
@@ -816,7 +879,6 @@ Chess* Game::player_move(int st)
 			tmp = mmap[mouse.x][mouse.y];
 			if (tmp < 0)
 				continue;
-			xyprintf(0, 400, "%d %d %d", mouse.x, mouse.y, flag);
 			if (mouse.is_right() && mouse.is_up())
 			{
 				for (uint i = 0; i < v.size(); i++)
@@ -827,6 +889,7 @@ Chess* Game::player_move(int st)
 			}
 			if (mouse.is_up() && mouse.is_left())
 			{
+				//bar(0, 0, 30, 400);
 				t += 10;
 				if (!flag)
 				{
@@ -842,7 +905,6 @@ Chess* Game::player_move(int st)
 						cmap[t1][t2]->check(true);
 						for (uint i = 0; i < v.size(); i++)
 							highlight(v[i].first, v[i].second);
-						xyprintf(0, 50, "first: %c at %d %d", cmap[t1][t2]->getPos(), t1, t2);
 						flag++;
 						continue;
 					}
@@ -851,7 +913,6 @@ Chess* Game::player_move(int st)
 				{
 					t3 = tmp / 10;
 					t4 = tmp % 10;
-					xyprintf(0, 100, "second: %d %d %d", t3, t4,cmap[t3][t4]->getStatus());
 					flushmouse();
 					if (cmap[t1][t2]->moveable(t3, t4))
 					{
@@ -869,97 +930,217 @@ Chess* Game::player_move(int st)
 	if (cmap[t3][t4]->getPos() == 'K')
 	{
 		game_end = 1;
-		return cmap[t3][t4];
+		return;
 	}
-	cmap[t1][t2]->moveto(t3, t4);
-	cover(t1, t2);
-	cmap[t3][t4]->draw();
-	return NULL;
+	move_chess(t1, t2, t3, t4);
 }
-Chess* Game::naive_ai_move(int status) 
+void Game::naive_ai_move(int status)
 {
 	int t1, t2;
 	vector<Chess*>pits;
 	for (list <Chess*>::iterator it = player_chess[status - 1].begin(); it != player_chess[status - 1].end(); it++)
-		if ((*it)->getPsb() > 0)
+	{
+		(*it)->check(1);
+		if (v.size() != 0)
 			pits.push_back(*it);
+	}
 	srand(time(0));
 	t1 = rand() % pits.size();
-	v.clear();
 	pits[t1]->check(1);
 	t2 = rand() % v.size();
-	cover(pits[t1]->getX(), pits[t1]->getY());
-	pits[t1]->moveto(v[t2].first, v[t2].second);
-	cmap[v[t2].first][v[t2].second]->draw();
-	setcolor(EGERGB(0xff, 0xff, 0xff));
-	return cmap[v[t2].first][v[t2].second];
+	if (cmap[v[t2].first][v[t2].second]->getPos() == 'K')
+	{
+		game_end = 1;
+	}
+	move_chess(pits[t1]->getX(), pits[t1]->getY(), v[t2].first, v[t2].second);
 }
-Chess* Game::simple_ai_move(int status)
+void Game::simple_ai_move(int status)
 {
-	Chess* maxf,*temp;
+	Chess* maxf, *temp;
 	int maxt;
-	int score,maxs=0;
+	int score, maxs = 0;
+	int t = 0;
 	for (list <Chess*>::iterator it = player_chess[status - 1].begin(); it != player_chess[status - 1].end(); it++)
 	{
-		if ((*it)->getPsb() == 0)
-			continue;
 		(*it)->check(1);
-		score = v.size()*flex[(*it)->getPos()];
 		for (uint i = 0; i < v.size(); i++)
 		{
+			score = v.size()*flex[(*it)->getPos()];
 			temp = cmap[v[i].first][v[i].second];
 			if (temp->getStatus())
 				score += importance[temp->getPos()];
 			if (score > maxs)
 			{
+				maxs = score;
 				maxt = i;
 				maxf = *it;
+				//xyprintf(0, 10 * t++, "%d %c", score,maxf->getPos());
 			}
 		}
 		v.clear();
 	}
 	maxf->check(1);
-	cover(maxf->getX(),maxf->getY());
-	maxf->moveto(v[maxt].first,v[maxt].second);
+	if (cmap[v[maxt].first][v[maxt].second]->getPos() == 'K')
+	{
+		game_end = 1;
+	}
+	cover(maxf->getX(), maxf->getY());
+	maxf->moveto(v[maxt].first, v[maxt].second);
 	cmap[v[maxt].first][v[maxt].second]->draw();
 	setcolor(EGERGB(0xff, 0xff, 0xff));
-	return cmap[v[maxt].first][v[maxt].second];
+}
+int max_score = 0;
+Chess* maxc;
+int maxi;
+int num;
+void Game::dfs(int st, int dep, int score)
+{
+
+	int t1, t2, sc;
+	bool flag = 0, li;
+	if (dep == 0)
+	{
+		int t = 0;
+		for (list <Chess*>::iterator it = player_chess[st - 1].begin(); it != player_chess[st - 1].end(); it++)
+		{
+			(*it)->check(1);
+			t1 = (*it)->getX();
+			t2 = (*it)->getY();
+			for (uint i = 0; i < v.size(); i++)
+			{
+				sc = score;
+				flag = 0;
+				if (cmap[v[i].first][v[i].second]->getStatus())
+				{
+					flag = 1;
+					dead_chess.push_back(cmap[v[i].first][v[i].second]);
+					sc = score + importance[cmap[v[i].first][v[i].second]->getPos()];
+				}
+				cmap[t1][t2]->moveto(v[i].first, v[i].second);
+				dfs(st, dep + 1, sc);
+				maxc = *it;
+				maxi = i;				
+				if (flag)
+					dead_chess.pop_back();
+				undo_chess(t1, t2);
+			}
+		}
+		//return false;
+	}
+	if (dep == 1)
+	{
+		for (list <Chess*>::iterator it = player_chess[2 - st].begin(); it != player_chess[2 - st].end(); it++)
+		{
+			for (uint i = 0; i < dead_chess.size(); i++)
+			{
+				if ((*it)->getX() == dead_chess[i]->getX() && (*it)->getY() == dead_chess[i]->getY())
+					continue;
+			}
+			(*it)->check(1);
+			t1 = (*it)->getX();
+			t2 = (*it)->getY();
+			for (uint i = 0; i < v.size(); i++)
+			{
+				sc = score;
+				flag = 0;
+				if (cmap[v[i].first][v[i].second]->getStatus())
+				{
+					flag = 1;
+					dead_chess.push_back(cmap[v[i].first][v[i].second]);
+					sc = score - importance[cmap[v[i].first][v[i].second]->getPos()]*2;
+				}
+				cmap[t1][t2]->moveto(v[i].first, v[i].second);
+				dfs(st, dep + 1, sc);
+				if (flag)
+					dead_chess.pop_back();
+				undo_chess(t1, t2);
+				//return li;
+			}
+		}
+	}
+	else
+	{
+		num++;
+		for (list <Chess*>::iterator it = player_chess[2 - st].begin(); it != player_chess[2 - st].end(); it++)
+		{
+			for (int i = 0; i < dead_chess.size(); i++)
+			{
+				if ((*it)->getX() == dead_chess[i]->getX() && (*it)->getY() == dead_chess[i]->getY())
+					continue;
+			}
+			(*it)->check(1);
+			t1 = (*it)->getX();
+			t2 = (*it)->getY();
+			for (int i = 0; i < v.size(); i++)
+			{
+				sc = score;
+				flag = 0;
+				if (cmap[v[i].first][v[i].second]->getStatus())
+				{
+					flag = 1;
+					sc = score + importance[cmap[v[i].first][v[i].second]->getPos()];
+				}
+				if (sc >= max_score)
+				{
+					max_score = sc;
+				}
+				//return false;
+			}
+		}
+		return;
+	}
+
+}
+void Game::normal_ai_move(int st)
+{
+	num = 0;
+	dfs(st, 0, 0);
+	xyprintf(100, 0, "%d", num);
+	maxc->check(1);
+	move_chess(maxc->getX(), maxc->getY(), v[maxi].first, v[maxi].second);
+	//return cmap[v[maxi].first][v[maxi].second];
 }
 int Game::welcome()
 {
 	wel_init();
-	setfont(70, 60, "Consolas");
+	setfillcolor(0xBEBEBE);
+	setbkcolor(0xBEBEBE);
+	setcolor(BLACK);
+	setfont(70, 50, "Microsoft YaHei UI Light");
 	xyprintf(80, 100, "Chess123");
-	//rectangle(200, 280, 440, 440);
 	for (int i = 0; i <= 240; i++)
 	{
-		putpixel(200+i, 280, EGERGB(0xff, 0xff, 0xff));
-		putpixel(200+i,440, EGERGB(0xff, 0xff, 0xff));
-		putpixel(200, 280 + i * 2 / 3,EGERGB(0xff,0xff,0xff));
-		putpixel(440, 280 + i * 2 / 3, EGERGB(0xff, 0xff, 0xff));
-		//Sleep(1);
+		putpixel(200 + i, 240, BLACK);
+		putpixel(200 + i, 440, BLACK);
+		putpixel(200, 240 + i * 5 / 6, BLACK);
+		putpixel(440, 240 + i * 5 / 6, BLACK);
+		Sleep(1);
 	}
 	for (int i = 0; i < 240; i++)
 	{
-		putpixel(200 + i, 320, EGERGB(0xff, 0xff, 0xff));
-		putpixel(440-i, 360, EGERGB(0xff, 0xff, 0xff));
-		putpixel(200 + i, 400, EGERGB(0xff, 0xff, 0xff));
-		//Sleep(1);
+		putpixel(440 - i, 280, BLACK);
+		putpixel(200 + i, 320, BLACK);
+		putpixel(440 - i, 360, BLACK);
+		putpixel(200 + i, 400, BLACK);
+		Sleep(1);
 	}
 	setfont(20, 15, "Consolas");
+	xyprintf(295, 248, "demo");
 	xyprintf(300, 288, "1v1");
-	xyprintf(250, 328, "1vC(naive)");
-	xyprintf(250, 368, "1vC(simple)");
-	xyprintf(290, 408, "Exit");
+	xyprintf(250, 328, "1vNaiveCom");
+	xyprintf(250, 368, "1vSimpleCom");
+	xyprintf(250, 408, "1vNormalCom");
+	setfont(10, 8, "Consolas");
+	xyprintf(280, 428, "(unavailable)");
 	mouse_msg mouse;
 	int tmp;
-	for (;; delay_jfps(60)) 
+	for (;; delay_jfps(60))
 	{
 		while (mousemsg())
 		{
 			mouse = getmouse();
 			tmp = mmap[mouse.x][mouse.y];
-			xyprintf(10, 10, "%d", tmp);
+			//xyprintf(10, 10, "%d", tmp);
 			if (mouse.is_up() && mouse.is_left())
 			{
 				if (tmp < 0)
@@ -970,54 +1151,111 @@ int Game::welcome()
 	}
 
 }
-void Game::good_game(Chess*tc)
+bool Game::good_game()
 {
-	int i;
-	int tx = tc->getX(), ty = tc->getY();
-	for (i = 0; i <= 640; i++)
+	
+	srand(time(0));
+	int p = 0;
+	setcolor(0xBEBEBE);
+	for (int i = 160; i<=640; i++) 
 	{
-		fillellipse(ty*40+140, tx*40+60, i, i);
-		Sleep(5);
+		line(i, 0, i, 480);
+		Sleep(1);
+	}
+	for (int i = 0; i <= 200; i++)
+	{
+		putpixel(540 + i, 400, EGERGB(0xff, 0xff, 0xff));
+		putpixel(540 + i, 440, EGERGB(0xff, 0xff, 0xff));
+		putpixel(540 + i, 478, EGERGB(0xff, 0xff, 0xff));
+		putpixel(540, 400 +  i * 2 / 5, EGERGB(0xff, 0xff, 0xff));
+		putpixel(638, 400 + i * 2 / 5, EGERGB(0xff, 0xff, 0xff));
+		Sleep(1);
+	}
+	setcolor(BLACK);
+	setfont(20, 16, "Consolas");
+	xyprintf(550, 410, "Retry");
+	xyprintf(560, 450, "Exit");
+	mouse_msg mouse;
+	for (;; delay_jfps(60))
+	{
+		while (mousemsg())
+		{
+			mouse = getmouse();
+			if (mouse.is_up() && mouse.is_left())
+			{
+				if (540 < mouse.x&&mouse.x < 640 && 400 < mouse.y&&mouse.y < 440)
+					return true;
+				if (540 < mouse.x&&mouse.x < 640 && 440 < mouse.y&&mouse.y < 480)
+					return false;
+			}
+		}
 	}
 }
+	
 void Game::play(int mode)
 {
-	if (mode == 4)
+	void (Game::*move1)(int);
+	void (Game::*move2)(int);
+	game_init(mode);
+	switch (mode) {
+	case 1:
+		move1 = &Game::naive_ai_move;
+		move2 = &Game::simple_ai_move;
+		break;
+	case 2:
+		move1 = &Game::player_move;
+		move2 = &Game::player_move;
+		break;
+	case 3:
+		move1 = &Game::player_move;
+		move2 = &Game::naive_ai_move;
+		break;
+	case 4:
+		move1 = &Game::player_move;
+		move2 = &Game::simple_ai_move;
+		break;
+	case 5:
+		move1 = &Game::player_move;
+		move2 = &Game::normal_ai_move;
+		break;
+	default:
 		return;
-	Chess* (Game::*func)(int );
-	if(mode==1)
-		func = &Game::player_move;
-	else if(mode==2)
-		func = &Game::naive_ai_move;
-	else if(mode==3)
-		func = &Game::simple_ai_move;
-	cleardevice();
-	game_init();
-	Chess* tc;
+	}
 	while (1)
 	{
-		setfont(10, 8, "Consolas");
-		xyprintf(500, 450, "Player1");
-		tc = player_move(2);
-		check_check();
-		if (game_end)
+		while (1)
+		{
+			setfont(15, 12, "Consolas");
+			xyprintf(500, 450, "Player1");
+			if (mode == 1) Sleep(300);
+			(this->*move1)(2);
+			check_check();
+			if (game_end)
+				break;
+			bar(500, 450, 600, 480);
+			setfont(15, 12, "Consolas");
+			xyprintf(500, 50, "Player2");
+			if (mode == 1) Sleep(300);
+			(this->*move2)(1);
+			check_check();
+			if (game_end)
+				break;
+			bar(500, 50, 600, 80);
+			setfont(10, 8, "Consolas");
+		}
+		if (good_game())
+		{
+			game_init(mode);
+			game_end = 0;
+		}
+		else
 			break;
-		bar(500, 450, 600, 460);
-		setfont(10, 8, "Consolas");
-		xyprintf(500, 50, "Player2");
-		tc = (this->*func)(1);
-		check_check();
-		if (game_end)
-			break;
-		bar(500, 50, 600, 60);
-		setfont(10, 8, "Consolas");
 	}
-	good_game(tc);
 }
 void Game::test()
 {
-	game_init();
-	good_game(cmap[1][1]);
+	game_init(1);
+	good_game();
 }
 int main()
 {
@@ -1025,7 +1263,8 @@ int main()
 	delay(60);
 	initgraph(640, 480);
 	setfont(37, 30, "Consolas");
+	//newgame.test();
 	newgame.play(newgame.welcome());
+	//newgame.play(1);
 	closegraph();
 }
-
