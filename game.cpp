@@ -1,22 +1,38 @@
 #include<graphics.h>
+/*EGE是windows下的简易图形库，介绍一下程序中使用的主要函数。
+*initgraph：初始化绘图环境，设置绘图环境大小
+*closegraph:关闭绘图环境
+*cleardevice：清屏，用背景色填充绘图环境
+*setbkcolor:设置背景色
+*setcolor:设置绘图颜色（线条和文字）
+*setfillcolor:设置填充颜色
+*setfont:设置字体大小和字体样式
+*line：绘制直线
+*bar:绘制填充矩形
+*rectangle:绘制空心矩形
+*putpixel:绘制像素点
+*xyprintf：绘图界面的输出函数
+*outtextxy：输出字符
+*/
+#include<iostream>
 #include<ctime>
 #include<vector>
 #include<stack>
 #include<list>
 #include<map>
+#include<cmath>
 using namespace std;
 typedef unsigned int uint;
 typedef void(*func)();
-bool game_end;
 
-class Chess
+class Chess//抽象类
 {
 private:
 	int x, y;//x,y分别棋子在棋盘上的横坐标和纵坐标，左上为(1,1),右下为(8，8)
-	int last_x, last_y, last_s;
+	int last_x, last_y, last_s;//
 	int status;//status表示棋子的状态,0表示死亡，1表示属于甲方，2表示属于乙方
 	char pos;//pos表示棋子的身份，用大写字母的K,Q,B,N,R,P表示
-	int psb;
+	bool player;
 public:
 	Chess(int x = 0, int y = 0, int s = 0, char c = 0) //构造函数
 	{
@@ -24,7 +40,6 @@ public:
 		this->y = y;
 		this->status = s;
 		this->pos = c;
-		this->psb = 0;
 	}
 	//获取数据的函数
 	int getX()const { return x; }
@@ -34,46 +49,41 @@ public:
 	int getLastS() { return last_s; }
 	char getPos() const { return pos; }
 	int getStatus() { return status; }
-	int getPsb() { return psb; }
+	bool getPlayer() { return player; }
 	//设置信息的函数
+	void setPlayer(bool p) { player = p; }
 	void setLastXY(int x, int y) { last_x = x, last_y = y; }
 	void setLastXYS() { last_x = x, last_y = y, last_s = status; }
 	void setLastS(int s) { last_s = s; }
-	void setPsb(int p) { psb = p; }
 	void setStatus(int s) { status = s; }
-	void setXY(int x, int y) {
-		this->x = x;
-		this->y = y;
+	void setXY(int tx, int ty) {
+		x = tx,y = ty;
 	}
-	void setXYS(int x, int y, int s)
-	{
-		this->x = x;
-		this->y = y;
-		this->status = s;
-
+	void setXYS(int tx, int ty, int ts)	{
+		x = tx,y = ty,status = ts;
+	}
+	void setXYSP(int tx, int ty, int ts, bool tp) {
+		x = tx, y = ty, status = ts, player = tp;
 	}
 	//draw函数用于在棋盘上打印出棋子的身份，用EGE库实现
 	void draw() {
 		if (!status)
 			return;
 		if (status == 1)
-			setcolor(EGERGB(0x0, 0xff, 0x0));
+			setcolor(EGERGB(0x0, 0x0, 0x0));
 		else
-			setcolor(EGERGB(0xff, 0x0, 0x0));
+			setcolor(EGERGB(0xff, 0xff, 0xff));
 		setfont(37, 30, "Consolas");
 		outtextxy(y * 40 + 125, x * 40 + 41, pos);
 		setcolor(EGERGB(0xff, 0xff, 0xff));
 	}
-	//safe函数判断移动的目标区域是否超出棋盘范围
+	//safe函数判断移动的目标区域是否超出棋盘范围或是否有己方棋子
 	bool safe(int mx, int my);
 	//highlight函数用于用白色框表示出所选中的棋子
 	void highlight(int mx, int my);
 	//虚函数movoto，用于后台棋子的移动
-
 	virtual void moveto(int mx, int my);
-	//moveto函数的重载
-	void moveto(Chess* cp);
-	//check函数
+	//check函数,bo为1时把棋子所有可能走到的位置保存到一个vector内
 	virtual bool check(bool bo) = 0;
 	//moveable函数用于判断目标位置是否为空，或是否有对方棋子，是否符合该棋子走法
 	virtual bool moveable(int mx, int my) = 0;
@@ -95,30 +105,33 @@ map <char, int> flex;
 class Game
 {
 private:
-	int check_state;
+	bool check_state;
+	bool game_end;
 	bool ai;
 public:
 	Game() {
-		int check_state = 0;
+		check_state = 0;
+		game_end = 0;
 	}
 	void wel_init();
 	void array_init();
-	void chess_init();
+	void chess_init(int mode);
 	void map_init();
 	void extra_init();
-	void game_init() {
+	void game_init(int mode) {
 		array_init();
-		chess_init();
+		chess_init(mode);
 		map_init();
 		extra_init();
 	}
 	void chess_clear();
-	void extra_clear();
-	Chess* player_move(int st);
+	void player_move(int st);
+	//绘制棋子的图标
 	void draw(int tx, int ty, char c) {
 		setfont(37, 30, "Consolas");
 		outtextxy(ty * 40 + 125, tx * 40 + 41, c);
 	}
+	//用背景色覆盖棋子的图标
 	void cover(int tx, int ty) {
 		bar(ty * 40 + 121, tx * 40 + 41, ty * 40 + 160, tx * 40 + 80);
 	}
@@ -132,11 +145,11 @@ public:
 	void set_checkstate(int ck) { check_state = ck; }
 	void move_chess(int x1, int y1, int x2, int  y2);
 	void undo_chess(int tx, int ty);
-	bool dfs(int dep, int st, int score);
-	Chess* naive_ai_move(int status);
-	Chess* simple_ai_move(int status);
-	Chess* normal_ai_move(int st);
-	void good_game(Chess*);
+	bool dfs(int dep, int sc, int&t1, int&t2, int&t3, int&t4);
+	void naive_ai_move(int status);
+	void simple_ai_move(int status);
+	void normal_ai_move(int st);
+	bool good_game();
 	void play(int mode);
 	int welcome();
 	void test();
@@ -171,6 +184,7 @@ public:
 class Queen :public Chess
 {
 private:
+
 	static const int nextx[8];
 	static const int nexty[8];
 public:
@@ -200,6 +214,7 @@ public:
 	bool moveable(int mx, int my);
 	bool check(bool bo);
 };
+//“士兵”类
 class Pawn :public Chess
 {
 private:
@@ -213,10 +228,12 @@ public:
 		Chess::setXY(x, y);
 	}
 	bool check(bool bo);
+	//考虑到士兵走到最后一行时会有“升变”，所以重载了moveto函数
 	void moveto(int mx, int my);
+	//用于升变的函数
 	void Promotion();
 };
-//各个棋类的静态成员，用于储存各棋的走法。
+//各个棋类的静态成员，用于储存各棋的走法
 const int Rook::nextx[4] = { 1,-1,0,0 };
 const int Rook::nexty[4] = { 0,0,1,-1 };
 const int Pawn::nextx[6] = { 1,1,1,-1,-1,-1 };
@@ -241,9 +258,9 @@ bool Knight::moveable(int mx, int my)
 		return true;
 	return false;
 }
+//检查是否能将军，在bo值为true时把所有可行位置保存在v内
 bool Knight::check(bool bo) {
 	int tx, ty;
-	int tpsb = 0;
 	bool flag = 0;
 	v.clear();
 	for (int i = 0; i < 8; i++)
@@ -252,14 +269,12 @@ bool Knight::check(bool bo) {
 		ty = Chess::getY() + nexty[i];
 		if (moveable(tx, ty))
 		{
-			tpsb++;
 			if (cmap[tx][ty]->getPos() == 'K')
 				flag = 1;
 			if (bo)
 				v.push_back(make_pair(tx, ty));
 		}
 	}
-	setPsb(tpsb);
 	return flag;
 }
 bool King::moveable(int mx, int my)
@@ -278,7 +293,6 @@ bool King::check(bool bo)
 {
 	int tx, ty;
 	bool flag = 0;
-	int tpsb = 0;
 	v.clear();
 	for (int i = 0; i < 8; i++)
 	{
@@ -286,14 +300,12 @@ bool King::check(bool bo)
 		ty = Chess::getY() + nexty[i];
 		if (moveable(tx, ty))
 		{
-			tpsb++;
 			if (bo)
 				v.push_back(make_pair(tx, ty));
 			if (cmap[tx][ty]->getPos() == 'K')
 				flag = 1;
 		}
 	}
-	setPsb(tpsb);
 	return flag;
 }
 bool Queen::moveable(int mx, int my)
@@ -346,7 +358,6 @@ bool Queen::check(bool bo)
 {
 	int tx, ty;
 	bool flag = 0;
-	int tpsb = 0;
 	v.clear();
 	for (int i = 0; i < 8; i++)
 	{
@@ -354,7 +365,6 @@ bool Queen::check(bool bo)
 		ty = Chess::getY() + nexty[i];
 		while (moveable(tx, ty))
 		{
-			tpsb++;
 			if (bo)
 				v.push_back(make_pair(tx, ty));
 			if (cmap[tx][ty]->getPos() == 'K')
@@ -363,7 +373,6 @@ bool Queen::check(bool bo)
 			ty += nexty[i];
 		}
 	}
-	setPsb(tpsb);
 	return flag;
 }
 bool Rook::moveable(int mx, int my)
@@ -398,7 +407,6 @@ bool Rook::check(bool bo)
 {
 	int tx, ty;
 	bool flag = 0;
-	int tpsb = 0;
 	v.clear();
 	for (int i = 0; i < 4; i++)
 	{
@@ -406,7 +414,6 @@ bool Rook::check(bool bo)
 		ty = Chess::getY() + nexty[i];
 		while (moveable(tx, ty))
 		{
-			tpsb++;
 			if (bo)
 				v.push_back(make_pair(tx, ty));
 			if (cmap[tx][ty]->getPos() == 'K')
@@ -415,7 +422,6 @@ bool Rook::check(bool bo)
 			ty += nexty[i];
 		}
 	}
-	setPsb(tpsb);
 	return flag;
 }
 bool Bishop::moveable(int mx, int my)
@@ -454,7 +460,6 @@ bool Bishop::check(bool bo)
 {
 	int tx, ty;
 	bool flag = 0;
-	int tpsb = 0;
 	v.clear();
 	for (int i = 0; i < 4; i++)
 	{
@@ -462,7 +467,6 @@ bool Bishop::check(bool bo)
 		ty = Chess::getY() + nexty[i];
 		while (moveable(tx, ty))
 		{
-			tpsb++;
 			if (bo)
 				v.push_back(make_pair(tx, ty));
 			if (cmap[tx][ty]->getPos() == 'K')
@@ -471,7 +475,6 @@ bool Bishop::check(bool bo)
 			ty += nexty[i];
 		};
 	}
-	setPsb(tpsb);
 	return flag;
 }
 bool Pawn::moveable(int mx, int my)
@@ -484,7 +487,6 @@ bool Pawn::moveable(int mx, int my)
 		return false;
 	if (getStatus() == 1)
 	{
-		//xyprintf(0, 150, "%d",cmap[mx][my]->getStatus());
 		if (tx == 2)
 		{
 			if (mx == tx + 2 && my == ty&&cmap[mx][my]->getStatus() == 0)
@@ -528,10 +530,22 @@ void Pawn::moveto(int mx, int my)
 	if (mx == 1 || mx == 8)
 		Promotion();
 }
-
 void Pawn::Promotion()
 {
 	int tx = getX(), ty = getY();
+	int tmp = 0;
+	bool flag = 0;
+	Chess* newc;
+	//一般考虑王后的价值更大，所以AI控制的士兵升变时直接选择王后
+	if (this->getPlayer() == 1)
+	{
+		newc = new Queen;
+		newc->setXYS(tx, ty, getStatus());
+		cmap[tx][ty] = newc;
+		chess_v.push_back(newc);
+		player_chess[getStatus() - 1].push_back(newc);
+		return;
+	}
 	setcolor(EGERGB(0xff, 0xff, 0xff));
 	setfont(15, 12, "Consolas");
 	xyprintf(510, 130, "Promorion");
@@ -545,8 +559,6 @@ void Pawn::Promotion()
 	line(540, 240, 580, 240);
 	line(540, 280, 580, 280);
 	mouse_msg mouse = { 0 };
-	int tmp = 0;
-	bool flag = 0;
 	for (;; delay_jfps(60))
 	{
 		while (mousemsg())
@@ -558,7 +570,6 @@ void Pawn::Promotion()
 				setfont(10, 8, "Consolas");
 				if (tmp >= -1)
 					continue;
-				Chess* newc;
 				if (tmp == -2)
 					newc = new Queen;
 				else if (tmp == -3)
@@ -586,14 +597,12 @@ bool Pawn::check(bool bo)
 	int tx, ty;
 	bool flag = 0;
 	v.clear();
-	int tpsb = 0;
 	for (int i = 0; i < 6; i++)
 	{
 		tx = Chess::getX() + nextx[i];
 		ty = Chess::getY() + nexty[i];
 		while (moveable(tx, ty))
 		{
-			tpsb++;
 			if (bo)
 				v.push_back(make_pair(tx, ty));
 			if (cmap[tx][ty]->getPos() == 'K')
@@ -602,7 +611,6 @@ bool Pawn::check(bool bo)
 			ty += nexty[i];
 		}
 	}
-	setPsb(tpsb);
 	return flag;
 }
 bool Chess::safe(int mx, int my)
@@ -627,17 +635,6 @@ void Chess::moveto(int mx, int my)
 	x = mx;
 	y = my;
 }
-void Chess::moveto(Chess* cp)
-{
-	if (cp->getStatus() != 0)
-	{
-		player_chess[cp->getStatus() - 1].remove(cp);
-	}
-	swap(cp, cmap[x][y]);
-	cmap[x][y]->setStatus(0);
-	x = cp->getX();
-	y = cp->getY();
-}
 void Chess::highlight(int mx, int my)
 {
 	setfillcolor(EGERGB(255, 215, 0));
@@ -660,14 +657,27 @@ void Game::clear_check()
 }
 void Game::wel_init()
 {
+
 	memset(mmap, -1, sizeof(mmap));
 	for (int i = 200; i <= 440; i++)
-		for (int j = 280; j <= 440; j++)
-			mmap[i][j] = j / 40 - 6;
+		for (int j = 240; j <= 440; j++)
+			mmap[i][j] = j / 40 - 5;
 
 }
-void Game::chess_init()
+void Game::chess_init(int mode)
 {
+	bool p1, p2;
+	switch (mode)
+	{
+		case 1:
+			p1 = 1, p2 = 1;
+			break;
+		case 2:
+			p1 = 0, p2 = 0;
+			break;
+		default:
+			p1 = 0, p2 = 1;
+	}
 	Rook* rook = new Rook[4];
 	Knight* knight = new Knight[4];
 	Bishop* bishop = new Bishop[4];
@@ -682,28 +692,28 @@ void Game::chess_init()
 	chess_v.push_back(knight);
 	chess_v.push_back(pawn);
 	chess_v.push_back(empt);
-	rook[0].setXYS(1, 1, 1);
-	rook[1].setXYS(1, 8, 1);
-	rook[2].setXYS(8, 1, 2);
-	rook[3].setXYS(8, 8, 2);
-	knight[0].setXYS(1, 2, 1);
-	knight[1].setXYS(1, 7, 1);
-	knight[2].setXYS(8, 2, 2);
-	knight[3].setXYS(8, 7, 2);
-	bishop[0].setXYS(1, 3, 1);
-	bishop[1].setXYS(1, 6, 1);
-	bishop[2].setXYS(8, 3, 2);
-	bishop[3].setXYS(8, 6, 2);
-	king[0].setXYS(1, 4, 1);
-	king[1].setXYS(8, 4, 2);
-	queen[0].setXYS(1, 5, 1);
-	queen[1].setXYS(8, 5, 2);
+	rook[0].setXYSP(1, 1, 1,p1);
+	rook[1].setXYSP(1, 8, 1,p1);
+	rook[2].setXYSP(8, 1, 2,p2);
+	rook[3].setXYSP(8, 8, 2,p2);
+	knight[0].setXYSP(1, 2, 1,p1);
+	knight[1].setXYSP(1, 7, 1,p1);
+	knight[2].setXYSP(8, 2, 2,p2);
+	knight[3].setXYSP(8, 7, 2,p2);
+	bishop[0].setXYSP(1, 3, 1,p1);
+	bishop[1].setXYSP(1, 6, 1,p1);
+	bishop[2].setXYSP(8, 3, 2,p2);
+	bishop[3].setXYSP(8, 6, 2,p2);
+	king[0].setXYSP(1, 5, 1,p1);
+	king[1].setXYSP(8, 5, 2,p2);
+	queen[0].setXYSP(1, 4, 1,p1);
+	queen[1].setXYSP(8, 4, 2,p2);
 
 	for (int i = 0; i < 8; i++)
 	{
-		pawn[i].setXYS(2, i + 1, 1);
+		pawn[i].setXYSP(2, i + 1, 1,p1);
 		pawn[i].setLastXYS();
-		pawn[i + 8].setXYS(7, i + 1, 2);
+		pawn[i + 8].setXYSP(7, i + 1, 2,p2);
 		pawn[i + 8].setLastXYS();
 		cmap[2][i + 1] = &pawn[i];
 		cmap[7][i + 1] = &pawn[i + 8];
@@ -715,10 +725,10 @@ void Game::chess_init()
 		king[i].setLastXYS();
 		queen[i].setLastXYS();
 		rook[i].setLastXYS();
-		rook[i + 2].setLastXYS();
 		knight[i].setLastXYS();
-		knight[i + 2].setLastXYS();
 		bishop[i].setLastXYS();
+		rook[i + 2].setLastXYS();
+		knight[i + 2].setLastXYS();
 		bishop[i + 2].setLastXYS();
 		player_chess[0].push_back(&rook[i]);
 		player_chess[0].push_back(&knight[i]);
@@ -743,10 +753,10 @@ void Game::chess_init()
 	cmap[1][6] = &bishop[1];
 	cmap[8][3] = &bishop[2];
 	cmap[8][6] = &bishop[3];
-	cmap[1][4] = &king[0];
-	cmap[8][4] = &king[1];
-	cmap[1][5] = &queen[0];
-	cmap[8][5] = &queen[1];
+	cmap[1][5] = &king[0];
+	cmap[8][5] = &king[1];
+	cmap[1][4] = &queen[0];
+	cmap[8][4] = &queen[1];
 	for (int i = 3; i <= 6; i++)
 		for (int j = 1; j <= 8; j++)
 			empt[i * 8 + j - 25].setXYS(i, j, 0);
@@ -766,6 +776,10 @@ void Game::array_init()
 }
 void Game::map_init()
 {
+	cleardevice();
+	setfillcolor(0xBEBEBE);
+	setbkcolor(0xBEBEBE);
+	setcolor(BLACK);
 	for (int i = 160; i <= 480; i += 40)
 		line(i, 80, i, 400);
 	for (int i = 80; i <= 400; i += 40)
@@ -778,6 +792,7 @@ void Game::map_init()
 		}
 	setcolor(EGERGB(0xff, 0xff, 0xff));
 }
+
 void Game::extra_init()
 {
 	importance['K'] = 1000000;
@@ -797,15 +812,16 @@ void Game::chess_clear()
 {
 	for (uint i = 0; i < chess_v.size(); i++)
 		delete chess_v[i];
+	chess_v.clear();
+	player_chess[0].clear();
+	player_chess[1].clear();
+	dead_chess.clear();
 }
-void Game::extra_clear()
-{
-
-}
+//选中所选择的棋子
 void Game::select(int tx, int ty)
 {
 
-	setfillcolor(EGERGB(0xff, 0xff, 0xff));
+	setfillcolor(EGERGB(108, 108, 108));
 	bar(ty * 40 + 122, tx * 40 + 42, ty * 40 + 124, tx * 40 + 79);
 	bar(ty * 40 + 157, tx * 40 + 42, ty * 40 + 159, tx * 40 + 79);
 	bar(ty * 40 + 122, tx * 40 + 42, ty * 40 + 159, tx * 40 + 44);
@@ -813,24 +829,26 @@ void Game::select(int tx, int ty)
 	setfillcolor(EGERGB(0x0, 0x0, 0x0));
 
 }
+//用背景色覆盖选框，作用是“取消选中”所选择的棋子
 void Game::disselect(int tx, int ty)
 {
-	setfillcolor(EGERGB(0x0, 0x0, 0x0));
+	setfillcolor(0xBEBEBE);
 	bar(ty * 40 + 122, tx * 40 + 42, ty * 40 + 124, tx * 40 + 79);
 	bar(ty * 40 + 157, tx * 40 + 42, ty * 40 + 159, tx * 40 + 79);
 	bar(ty * 40 + 122, tx * 40 + 42, ty * 40 + 159, tx * 40 + 44);
 	bar(ty * 40 + 122, tx * 40 + 77, ty * 40 + 159, tx * 40 + 79);
-	setfillcolor(EGERGB(0x0, 0x0, 0x0));
 }
+//高亮表示坐标为(tx,ty)的棋子
 void Game::highlight(int tx, int ty)
 {
-	setfillcolor(EGERGB(255, 215, 0));
+	setfillcolor(EGERGB(30, 30, 30));
 	bar(ty * 40 + 122, tx * 40 + 42, ty * 40 + 124, tx * 40 + 79);
 	bar(ty * 40 + 157, tx * 40 + 42, ty * 40 + 159, tx * 40 + 79);
 	bar(ty * 40 + 122, tx * 40 + 42, ty * 40 + 159, tx * 40 + 44);
 	bar(ty * 40 + 122, tx * 40 + 77, ty * 40 + 159, tx * 40 + 79);
 	setfillcolor(EGERGB(0x0, 0x0, 0x0));
 }
+//考虑到当自己走棋时，可能将对方的军，也可能让自己被将军，所以直接检查场面上所有棋子，其实是偷懒的写法.. 
 bool Game::check_check()
 {
 	bool flag = 0;
@@ -856,12 +874,17 @@ bool Game::check_check()
 	clear_check();
 	return false;
 }
+//把位于(x1,y1)的棋子移动到(x2,y2)
 void Game::move_chess(int x1, int y1, int x2, int  y2)
 {
+	//后台移动
 	cmap[x1][y1]->moveto(x2, y2);
+	//“擦除”原先所在位置的图像
 	cover(x1, y1);
+	//在新的位置上输出图像
 	cmap[x2][y2]->draw();
 }
+//normalAI深搜回溯时回到初始状态时用到
 void Game::undo_chess(int tx, int ty)
 {
 	int lx = cmap[tx][ty]->getLastX();
@@ -872,11 +895,13 @@ void Game::undo_chess(int tx, int ty)
 	swap(cmap[tx][ty], cmap[lx][ly]);
 
 }
-Chess* Game::player_move(int st)
+//玩家落子时的函数
+void Game::player_move(int st)
 {
 	setfont(10, 8, "Consolas");
 	int t1 = 0, t2 = 0, t3 = 0, t4 = 0, tmp = 0, flag = 0;
 	int t = 20;
+	//获得鼠标信息
 	mouse_msg mouse = { 0 };
 	for (;; delay_jfps(60))
 	{
@@ -886,7 +911,7 @@ Chess* Game::player_move(int st)
 			tmp = mmap[mouse.x][mouse.y];
 			if (tmp < 0)
 				continue;
-			//xyprintf(0, 400, "%d %d %d", mouse.x, mouse.y, flag);
+			//鼠标右击时，取消选择原来选中的棋子
 			if (mouse.is_right() && mouse.is_up())
 			{
 				for (uint i = 0; i < v.size(); i++)
@@ -897,33 +922,28 @@ Chess* Game::player_move(int st)
 			}
 			if (mouse.is_up() && mouse.is_left())
 			{
-				bar(0, 0, 30, 400);
 				t += 10;
+				//flag为0时，选中被移动的棋子
 				if (!flag)
 				{
-					disselect(t1, t2);
 					t1 = tmp / 10;
 					t2 = tmp % 10;
 					if (cmap[t1][t2]->getStatus() == st)
 					{
 						Game::select(t1, t2);
-						for (uint i = 0; i < v.size(); i++)
-							disselect(v[i].first, v[i].second);
-						v.clear();
 						cmap[t1][t2]->check(true);
 						for (uint i = 0; i < v.size(); i++)
 							highlight(v[i].first, v[i].second);
-						//xyprintf(0, 50, "first: %c at %d %d", cmap[t1][t2]->getPos(), t1, t2);
 						flag++;
 						continue;
 					}
 				}
+				//flag为1时，选中目标位置，选中合法位置后跳出循环
 				if (flag == 1)
 				{
 					t3 = tmp / 10;
 					t4 = tmp % 10;
-					//xyprintf(0, 100, "second: %d %d %d", t3, t4,cmap[t3][t4]->getStatus());
-					flushmouse();
+					//flushmouse();
 					if (cmap[t1][t2]->moveable(t3, t4))
 					{
 						for (unsigned int i = 0; i < v.size(); i++)
@@ -937,18 +957,16 @@ Chess* Game::player_move(int st)
 		if (flag == 2)
 			break;
 	}
+	//如果吃掉了对方国王，游戏结束
 	if (cmap[t3][t4]->getPos() == 'K')
 	{
 		game_end = 1;
-		return cmap[t3][t4];
+		return;
 	}
 	move_chess(t1, t2, t3, t4);
-	//cmap[t1][t2]->moveto(t3, t4);
-	//cover(t1, t2);
-	//cmap[t3][t4]->draw();
-	return cmap[t3][t4];
 }
-Chess* Game::naive_ai_move(int status)
+//navieAI,随机选择移动的棋子和移动位置.. 
+void Game::naive_ai_move(int status)
 {
 	int t1, t2;
 	vector<Chess*>pits;
@@ -967,9 +985,9 @@ Chess* Game::naive_ai_move(int status)
 		game_end = 1;
 	}
 	move_chess(pits[t1]->getX(), pits[t1]->getY(), v[t2].first, v[t2].second);
-	return cmap[v[t2].first][v[t2].second];
 }
-Chess* Game::simple_ai_move(int status)
+//simpleAI,贪心地选出所有走法中价值最高的。吃掉对方棋子或有更多的走法能够增加价值。
+void Game::simple_ai_move(int status)
 {
 	Chess* maxf, *temp;
 	int maxt;
@@ -1003,150 +1021,509 @@ Chess* Game::simple_ai_move(int status)
 	maxf->moveto(v[maxt].first, v[maxt].second);
 	cmap[v[maxt].first][v[maxt].second]->draw();
 	setcolor(EGERGB(0xff, 0xff, 0xff));
-	return cmap[v[maxt].first][v[maxt].second];
 }
-int max_score = 0;
-Chess* maxc;
-int maxi;
-
-bool Game::dfs(int st, int dep, int score)
+//normalAI，回溯时会出现问题..还在Debug...
+map <int, int> Map;
+int plate[3][9][9];
+int anextx[8] = { 1,1,-1,-1,2,2,-2,-2 };
+int anexty[8] = { 2,-2,2,-2,1,-1,1,-1 };
+int bnextx[8] = { 0,0,1,-1,1,1,-1,-1 };
+int bnexty[8] = { 1,-1,0,0,1,-1,1,-1 };
+int cnextx[6] = { 1,1,1,-1,-1,-1 };
+int cnexty[6] = { 1,0,-1,1,0,-1 };
+//K 1 Q 2 R 3 N 4 B 5 P 6
+int maxsc;
+bool judge(int dep, int i, int j)
 {
-
-	int t1, t2, sc;
-	bool flag = 0, li;
-	if (dep == 0)
-	{
-		int t = 0;
-		for (list <Chess*>::iterator it = player_chess[st - 1].begin(); it != player_chess[st - 1].end(); it++)
-		{
-			(*it)->check(1);
-			t1 = (*it)->getX();
-			t2 = (*it)->getY();
-			for (uint i = 0; i < v.size(); i++)
-			{
-				sc = score;
-				flag = 0;
-				if (cmap[v[i].first][v[i].second]->getStatus())
-				{
-					flag = 1;
-					dead_chess.push_back(cmap[v[i].first][v[i].second]);
-					sc = score + importance[cmap[v[i].first][v[i].second]->getPos()];
-				}
-				cmap[t1][t2]->moveto(v[i].first, v[i].second);
-				if (dfs(st, dep + 1, sc))
-				{
-					maxc = *it;
-					xyprintf(0, t++* 10, "%c", (*it)->getPos());
-					maxi = i;
-				}
-				if (flag)
-					dead_chess.pop_back();
-				undo_chess(t1, t2);
-
-			}
-
-
-		}
-		return false;
-	}
-	if (dep == 1)
-	{
-		for (list <Chess*>::iterator it = player_chess[2 - st].begin(); it != player_chess[2 - st].end(); it++)
-		{
-			for (uint i = 0; i < dead_chess.size(); i++)
-			{
-				if ((*it)->getX() == dead_chess[i]->getX() && (*it)->getY() == dead_chess[i]->getY())
-					continue;
-			}
-			(*it)->check(1);
-			t1 = (*it)->getX();
-			t2 = (*it)->getY();
-			for (uint i = 0; i < v.size(); i++)
-			{
-				sc = score;
-				flag = 0;
-				if (cmap[v[i].first][v[i].second]->getStatus())
-				{
-					flag = 1;
-					dead_chess.push_back(cmap[v[i].first][v[i].second]);
-					sc = score - importance[cmap[v[i].first][v[i].second]->getPos()]*2;
-				}
-				cmap[t1][t2]->moveto(v[i].first, v[i].second);
-				li = dfs(st, dep + 1, sc);
-				if (flag)
-					dead_chess.pop_back();
-				undo_chess(t1, t2);
-				return li;
-			}
-		}
-	}
+	if (dep == 0 || dep == 2)
+		return plate[dep][i][j] > 0;
 	else
+		return plate[dep][i][j] < 0;
+}
+
+
+int xmap[6][8][8] = {
+	1,1,1,1,1,1,1,1,//K
+	1,1,1,1,1,1,1,1,
+	1,1,1,1,1,1,1,1,
+	1,1,1,1,1,1,1,1,
+	1,1,1,1,1,1,1,1,
+	1,1,1,1,1,1,1,1,
+	1,1,1,1,1,1,1,1,
+	1,1,1,1,1,1,1,1,
+
+	1,2,3,2,3,2,3,1,//Q
+	1,2,2,2,2,2,2,1,
+	1,3,3,3,3,3,3,1,
+	2,4,4,4,4,4,4,2,
+	2,4,4,4,4,4,4,2,
+	2,5,5,5,5,5,5,2,
+	3,4,4,4,4,4,4,3,
+	2,5,5,5,5,5,5,2,
+
+	0,1,3,4,4,3,1,0,//R
+	1,2,2,2,2,2,2,1,
+	1,3,3,3,3,3,3,1,
+	2,4,4,4,4,4,4,2,
+	2,4,5,5,5,5,4,2,
+	2,5,5,5,5,5,5,2,
+	3,4,5,5,5,5,5,3,
+	2,5,5,5,5,5,5,2,
+
+	1,1,1,1,1,1,1,1,//N
+	1,2,2,2,2,2,2,1,
+	1,3,3,3,3,3,3,1,
+	2,4,4,4,4,4,4,2,
+	2,4,4,4,4,4,4,2,
+	2,5,8,8,5,5,5,2,
+	3,8,4,4,8,4,4,3,
+	2,5,5,5,5,5,5,2,
+
+	1,1,1,1,1,1,1,1,//B
+	1,2,2,2,2,2,2,1,
+	1,3,3,3,3,3,3,1,
+	2,4,4,4,4,4,4,2,
+	2,4,4,4,4,4,4,2,
+	2,5,5,5,5,5,5,2,
+	3,4,4,4,4,4,4,3,
+	2,5,5,5,5,5,5,2,
+
+	1,1,1,1,1,1,1,1,//P
+	3,3,3,3,3,3,3,3,
+	5,5,5,5,5,5,5,5,
+	7,7,7,7,7,7,7,7,
+	10,10,10,10,10,10,10,10,
+	12,12,12,12,12,12,12,12,
+	14,14,14,14,14,14,14,14,
+	100,100,100,100,100,100,100,100
+};
+bool Game::dfs(int dep, int sc, int&t1, int&t2, int&t3, int&t4)
+{
+	int tx, ty, temp;
+	bool flag = 0;
+	for (int i = 1; i <= 8; i++)
 	{
-		for (list <Chess*>::iterator it = player_chess[2 - st].begin(); it != player_chess[2 - st].end(); it++)
+		for (int j = 1; j <= 8; j++)
 		{
-			for (uint i = 0; i < dead_chess.size(); i++)
+
+			if (judge(dep, i, j))
 			{
-				if ((*it)->getX() == dead_chess[i]->getX() && (*it)->getY() == dead_chess[i]->getY())
-					continue;
+				switch (abs(plate[dep][i][j])) {
+				case 1:
+					for (int k = 0; k < 8; k++)
+					{
+						if (!dep)
+							flag = 0;
+						tx = i + bnextx[k];
+						ty = j + bnexty[k];
+						if (tx < 1 || tx>8 || ty < 1 || ty>8)
+							continue;
+						if (judge(dep, tx, ty))
+							continue;
+						if (dep == 2)
+						{
+							if (sc + Map[plate[dep][tx][ty]] >= maxsc)
+							{
+								maxsc = sc + Map[plate[dep][tx][ty]];
+								flag = 1;
+							}
+							continue;
+						}
+						memcpy(plate[dep + 1], plate[dep], sizeof(plate[dep + 1]));
+						if (dep == 0)
+							plate[dep + 1][tx][ty] = 1;
+						else
+							plate[dep + 1][tx][ty] = -1;
+						plate[dep + 1][i][j] = 0;
+						if (dep == 0)
+							sc = xmap[0][tx][ty];
+						flag |= dfs(dep + 1, sc + Map[plate[dep][tx][ty]], t1, t2, t3, t4);
+						if (!dep && flag)
+						{
+							t1 = i, t2 = j, t3 = tx, t4 = ty;
+						}
+					}
+					break;
+				case 2:
+					for (int k = 0; k < 8; k++)
+					{
+						if (!dep)
+							flag = 0;
+						tx = i + bnextx[k];
+						ty = j + bnexty[k];
+						while (tx >= 1 && tx <= 8 && ty >= 1 && ty <= 8 && !judge(dep, tx, ty))
+						{
+							if (dep == 2)
+							{
+								if (sc + Map[plate[dep][tx][ty]] >= maxsc)
+								{
+									maxsc = sc + Map[plate[dep][tx][ty]];
+									flag = 1;
+									if (plate[dep][tx][ty] != 0)
+										break;
+								}
+								tx = tx + bnextx[k];
+								ty = ty + bnexty[k];
+								continue;
+							}
+							memcpy(plate[dep + 1], plate[dep], sizeof(plate[dep + 1]));
+							if (dep == 0)
+								plate[dep + 1][tx][ty] = 2;
+							else
+								plate[dep + 1][tx][ty] = -2;
+							plate[dep + 1][i][j] = 0;
+							if (dep == 0)
+								sc = xmap[1][tx][ty];
+							flag |= dfs(dep + 1, sc + Map[plate[dep][tx][ty]], t1, t2, t3, t4);
+							if (!dep && flag)
+							{
+								t1 = i, t2 = j, t3 = tx, t4 = ty;
+							}
+							if (plate[dep][tx][ty] != 0)
+								break;
+							tx = tx + bnextx[k];
+							ty = ty + bnexty[k];
+						}
+					}
+					break;
+				case 3:
+					for (int k = 0; k < 4; k++)
+					{
+						if (!dep)
+							flag = 0;
+						tx = i + bnextx[k];
+						ty = j + bnexty[k];
+						while (tx >= 1 && tx <= 8 && ty >= 1 && ty <= 8 && !judge(dep, tx, ty))
+						{
+							if (dep == 2)
+							{
+								if (sc + Map[plate[dep][tx][ty]] >= maxsc)
+								{
+									maxsc = sc + Map[plate[dep][tx][ty]];
+									flag = 1;
+								}
+								if (plate[dep][tx][ty] != 0)
+									break;
+								tx = tx + bnextx[k];
+								ty = ty + bnexty[k];
+								continue;
+							}
+
+							memcpy(plate[dep + 1], plate[dep], sizeof(plate[dep + 1]));
+							if (dep == 0)
+								plate[dep + 1][tx][ty] = 3;
+							else
+								plate[dep + 1][tx][ty] = -3;
+							plate[dep + 1][i][j] = 0;
+							if (dep == 0)
+								sc = xmap[2][tx][ty];
+							flag |= dfs(dep + 1, sc + Map[plate[dep][tx][ty]], t1, t2, t3, t4);
+							if (!dep && flag)
+							{
+								t1 = i, t2 = j, t3 = tx, t4 = ty;
+							}
+							if (plate[dep][tx][ty] != 0)
+								break;
+							tx = tx + bnextx[k];
+							ty = ty + bnexty[k];
+						}
+					}
+					break;
+				case 4:
+					for (int k = 0; k < 8; k++)
+					{
+						if (!dep)
+							flag = 0;
+						tx = i + anextx[k];
+						ty = j + anexty[k];
+						if (tx < 1 || tx>8 || ty < 1 || ty>8)
+							continue;
+						if (judge(dep, tx, ty))
+							continue;
+						if (dep == 2)
+						{
+							if (sc + Map[temp] >= maxsc)
+							{
+								maxsc = sc + Map[temp];
+								flag = 1;
+							}
+							continue;
+						}
+
+						memcpy(plate[dep + 1], plate[dep], sizeof(plate[dep + 1]));
+						if (dep == 0)
+							plate[dep + 1][tx][ty] = 4;
+						else
+							plate[dep + 1][tx][ty] = -4;
+						plate[dep + 1][i][j] = 0;
+						if (dep == 0)
+							sc = xmap[3][tx][ty];
+						flag |= dfs(dep + 1, sc + Map[plate[dep][tx][ty]], t1, t2, t3, t4);
+						if (!dep && flag)
+						{
+							t1 = i, t2 = j, t3 = tx, t4 = ty;
+						}
+					}
+					break;
+				case 5:
+					for (int k = 4; k < 8; k++)
+					{
+						if (!dep)
+							flag = 0;
+						tx = i + bnextx[k];
+						ty = j + bnexty[k];
+						while (tx >= 1 && tx <= 8 && ty >= 1 && ty <= 8 && !judge(dep, tx, ty))
+						{
+							if (dep == 2)
+							{
+								if (sc + Map[plate[dep][tx][ty]] >= maxsc)
+								{
+									maxsc = sc + Map[plate[dep][tx][ty]];
+									flag = 1;
+								}
+								if (plate[dep][tx][ty] != 0)
+									break;
+								tx = tx + bnextx[k];
+								ty = ty + bnexty[k];
+								continue;
+							}
+
+							memcpy(plate[dep + 1], plate[dep], sizeof(plate[dep + 1]));
+							if (dep == 0)
+								plate[dep + 1][tx][ty] = 5;
+							else
+								plate[dep + 1][tx][ty] = -5;
+							plate[dep + 1][i][j] = 0;
+							if (dep == 0)
+								sc = xmap[4][tx][ty];
+							flag |= dfs(dep + 1, sc + Map[plate[dep][tx][ty]], t1, t2, t3, t4);
+							if (!dep && flag)
+							{
+								t1 = i, t2 = j, t3 = tx, t4 = ty;
+							}
+							if (plate[dep][tx][ty] != 0)
+								break;
+							tx = tx + bnextx[k];
+							ty = ty + bnexty[k];
+						}
+					}
+					break;
+				case 6:
+					if (dep % 2)
+					{
+						if (i > 1)
+						{
+							if (plate[dep][i - 1][j] == 0)
+							{
+								memcpy(plate[dep + 1], plate[dep], sizeof(plate[dep + 1]));
+								plate[dep + 1][i - 1][j] = -6;
+								plate[dep + 1][i][j] = 0;
+								flag |= dfs(dep + 1, sc, t1, t2, t3, t4);
+							}
+							if (j > 1 && plate[dep][i - 1][j - 1] < 0)
+							{
+								memcpy(plate[dep + 1], plate[dep], sizeof(plate[dep + 1]));
+								plate[dep + 1][i - 1][j - 1] = -6;
+								plate[dep + 1][i][j] = 0;
+								flag |= dfs(dep + 1, sc + Map[plate[dep][i - 1][j - 1]], t1, t2, t3, t4);
+							}
+							if (j < 8 && plate[dep][i - 1][j + 1] < 0)
+							{
+								memcpy(plate[dep + 1], plate[dep], sizeof(plate[dep + 1]));
+								plate[dep + 1][i - 1][j + 1] = -6;
+								plate[dep + 1][i][j] = 0;
+								flag |= dfs(dep + 1, sc + Map[plate[dep][i - 1][j + 1]], t1, t2, t3, t4);
+							}
+						}
+					}
+					else if (dep == 0)
+					{
+						if (i < 8)
+						{
+							if (plate[dep][i + 1][j] == 0)
+							{
+								memcpy(plate[dep + 1], plate[dep], sizeof(plate[dep + 1]));
+								plate[dep + 1][i + 1][j] = 6;
+								plate[dep + 1][i][j] = 0;
+								sc = xmap[5][i+1][j];
+								flag |= dfs(dep + 1, sc, t1, t2, t3, t4);
+							}
+							if (j > 1 && plate[dep][i + 1][j - 1] < 0)
+							{
+								memcpy(plate[dep + 1], plate[dep], sizeof(plate[dep + 1]));
+								plate[dep + 1][i + 1][j - 1] = 6;
+								plate[dep + 1][i][j] = 0;
+								sc = xmap[5][i+1][j-1];
+								flag |= dfs(dep + 1, sc + Map[plate[dep][i + 1][j - 1]], t1, t2, t3, t4);
+							}
+							if (j < 8 && plate[dep][i + 1][j + 1] < 0)
+							{
+								memcpy(plate[dep + 1], plate[dep], sizeof(plate[dep + 1]));
+								plate[dep + 1][i + 1][j + 1] = 6;
+								plate[dep + 1][i][j] = 0;
+								sc = xmap[5][i+1][j+1];
+								flag |= dfs(dep + 1, sc + Map[plate[dep][i + 1][j + 1]], t1, t2, t3, t4);
+							}
+						}
+					}
+					else
+					{
+						if (i < 8)
+						{
+							if (plate[dep][i + 1][j] == 0)
+							{
+								if (sc + Map[plate[dep][i + 1][j]] >= maxsc)
+								{
+									maxsc = sc + Map[plate[dep][i + 1][j]];
+									flag = 1;
+								}
+							}
+							if (j > 1 && plate[dep][i + 1][j - 1] < 0)
+							{
+								if (sc + Map[plate[dep][i + 1][j - 1]] >= maxsc)
+								{
+									maxsc = sc + Map[plate[dep][i + 1][j - 1]];
+									flag = 1;
+								}
+							}
+							if (j < 8 && plate[dep][i + 1][j + 1] < 0)
+							{
+								if (sc + Map[plate[dep][i + 1][j + 1]] >= maxsc)
+								{
+									maxsc = sc + Map[plate[dep][i + 1][j + 1]];
+									flag = 1;
+								}
+							}
+						}
+					}
+					break;
+				}
 			}
-			(*it)->check(1);
-			t1 = (*it)->getX();
-			t2 = (*it)->getY();
-			for (uint i = 0; i < v.size(); i++)
+
+		}
+	}
+	return flag;
+
+}
+void Game::normal_ai_move(int st)
+{
+	Map[6] = -100000;
+	Map[5] = -5000;
+	Map[4] = -500;
+	Map[3] = -500;
+	Map[2] = -500;
+	Map[1] = -100;
+	Map[0] = 0;
+	Map[-1] = 100;
+	Map[-2] = 500;
+	Map[-3] = 500;
+	Map[-4] = 500;
+	Map[-5] = 5000;
+	Map[-6] = 100000;
+	memset(plate, 0, sizeof(plate));
+	for (int i = 1; i <= 8; i++)
+	{
+		for (int j = 1; j <= 8; j++)
+		{
+			if (cmap[i][j]->getStatus() == st)
 			{
-				sc = score;
-				flag = 0;
-				if (cmap[v[i].first][v[i].second]->getStatus())
+				switch (cmap[i][j]->getPos())
 				{
-					flag = 1;
-					sc = score + importance[cmap[v[i].first][v[i].second]->getPos()];
+				case 'K':
+					plate[0][i][j] = 1;
+					break;
+				case 'Q':
+					plate[0][i][j] = 2;
+					break;
+				case 'R':
+					plate[0][i][j] = 3;
+					break;
+				case 'N':
+					plate[0][i][j] = 4;
+					break;
+				case 'B':
+					plate[0][i][j] = 5;
+					break;
+				case 'P':
+					plate[0][i][j] = 6;
+					break;
 				}
-				if (sc >= max_score)
-				{
-					max_score = sc;
-					return true;
-				}
-				return false;
 			}
+			else if (cmap[i][j]->getStatus() == 3-st)
+			{
+				switch (cmap[i][j]->getPos())
+				{
+				case 'K':
+					plate[0][i][j] = -1;
+					break;
+				case 'Q':
+					plate[0][i][j] = -2;
+					break;
+				case 'R':
+					plate[0][i][j] = -3;
+					break;
+				case 'N':
+					plate[0][i][j] = -4;
+					break;
+				case 'B':
+					plate[0][i][j] = -5;
+					break;
+				case 'P':
+					plate[0][i][j] = -6;
+					break;
+				}
+			}
+
 		}
 	}
 
+	int x1, y1, x2, y2;
+	maxsc = -1;
+	dfs(0, 0, x1, y1, x2, y2);
+	if (cmap[x2][y2]->getPos() == 'K')
+	{
+		game_end = 1;
+	}
+	move_chess(x1, y1, x2,y2);
+	
 }
-Chess* Game::normal_ai_move(int st)
-{
-	dfs(st, 0, 0);
-	maxc->check(1);
-	move_chess(maxc->getX(), maxc->getY(), v[maxi].first, v[maxi].second);
-	return cmap[v[maxi].first][v[maxi].second];
-}
+//最初的菜单界面
 int Game::welcome()
 {
 	wel_init();
+	setfillcolor(0xBEBEBE);
+	setbkcolor(0xBEBEBE);
+	setcolor(BLACK);
 	setfont(70, 50, "Microsoft YaHei UI Light");
-	xyprintf(80, 100, "Chess123");
-	//rectangle(200, 280, 440, 440);
+	xyprintf(100, 100, "Chess123");
+	//实现线框的动画效果
 	for (int i = 0; i <= 240; i++)
 	{
-		putpixel(200 + i, 280, EGERGB(0xff, 0xff, 0xff));
-		putpixel(200 + i, 440, EGERGB(0xff, 0xff, 0xff));
-		putpixel(200, 280 + i * 2 / 3, EGERGB(0xff, 0xff, 0xff));
-		putpixel(440, 280 + i * 2 / 3, EGERGB(0xff, 0xff, 0xff));
-		//Sleep(1);
+		putpixel(200 + i, 240, BLACK);
+		putpixel(200 + i, 440, BLACK);
+		putpixel(200, 240 + i * 5 / 6, BLACK);
+		putpixel(440, 240 + i * 5 / 6, BLACK);
+		Sleep(1);
 	}
 	for (int i = 0; i < 240; i++)
 	{
-		putpixel(200 + i, 320, EGERGB(0xff, 0xff, 0xff));
-		putpixel(440 - i, 360, EGERGB(0xff, 0xff, 0xff));
-		putpixel(200 + i, 400, EGERGB(0xff, 0xff, 0xff));
-		//Sleep(1);
+		putpixel(440 - i, 280, BLACK);
+		putpixel(200 + i, 320, BLACK);
+		putpixel(440 - i, 360, BLACK);
+		putpixel(200 + i, 400, BLACK);
+		Sleep(1);
 	}
 	setfont(20, 15, "Consolas");
+	xyprintf(295, 248, "demo");
 	xyprintf(300, 288, "1v1");
-	xyprintf(250, 328, "1vC(naive)");
-	xyprintf(250, 368, "1vC(simple)");
-	xyprintf(290, 408, "Exit");
+	xyprintf(250, 328, "1vNaiveCom");
+	xyprintf(240, 368, "1vSimpleCom");
+	xyprintf(240, 408, "1vNormalCom");
+	setfont(10, 8, "Consolas");
+	xyprintf(280, 428, "(unavailable)");
 	mouse_msg mouse;
 	int tmp;
+	//同样鼠标点击区域进行了映射
 	for (;; delay_jfps(60))
 	{
 		while (mousemsg())
@@ -1162,68 +1539,136 @@ int Game::welcome()
 			}
 		}
 	}
-
 }
-void Game::good_game(Chess*tc)
+//游戏结束画面
+bool Game::good_game()
 {
-	int i;
-	int tx = tc->getX(), ty = tc->getY();
-	for (i = 0; i <= 640; i++)
+	srand(time(0));
+	setfont(60, 40, "Consolas");
+	setcolor(WHITE);
+	xyprintf(140, 200, "Checkmate!");
+	Sleep(1000);
+
+	//擦除棋盘
+	for (int i = 160; i<=640; i++) 
 	{
-		fillellipse(ty * 40 + 140, tx * 40 + 60, i, i);
-		Sleep(5);
+		setcolor(WHITE);
+		xyprintf(140, 200, "Checkmate!");
+		setcolor(0xBEBEBE);
+		line(i, 0, i, 480);
+		Sleep(1);
+	}
+
+	//实现线框的动画效果
+	for (int i = 0; i <= 200; i++)
+	{
+		putpixel(540 + i, 400, EGERGB(0xff, 0xff, 0xff));
+		putpixel(540 + i, 440, EGERGB(0xff, 0xff, 0xff));
+		putpixel(540 + i, 478, EGERGB(0xff, 0xff, 0xff));
+		putpixel(540, 400 +  i * 2 / 5, EGERGB(0xff, 0xff, 0xff));
+		putpixel(638, 400 + i * 2 / 5, EGERGB(0xff, 0xff, 0xff));
+		Sleep(1);
+	}
+	
+	setcolor(BLACK);
+	setfont(20, 16, "Consolas");
+	xyprintf(550, 410, "Retry");
+	xyprintf(560, 450, "Exit");
+	mouse_msg mouse;
+	//菜单选项较少所以直接用if语句判断..
+	for (;; delay_jfps(60))
+	{
+		while (mousemsg())
+		{
+			mouse = getmouse();
+			if (mouse.is_up() && mouse.is_left())
+			{
+				if (540 < mouse.x&&mouse.x < 640 && 400 < mouse.y&&mouse.y < 440)
+					return true;
+				if (540 < mouse.x&&mouse.x < 640 && 440 < mouse.y&&mouse.y < 480)
+					return false;
+			}
+		}
 	}
 }
+//控制游戏进行的函数
 void Game::play(int mode)
 {
-	Chess* (Game::*func)(int);
-	if (mode == 1)
-		func = &Game::player_move;
-	else if (mode == 2)
-		func = &Game::naive_ai_move;
-	else if (mode == 3)
-		func = &Game::simple_ai_move;
-	else if (mode == 4)
-		func = &Game::normal_ai_move;
-	cleardevice();
-	game_init();
-	Chess* tc;
+	//用了函数指针，方便不同模式下函数的调用
+	void (Game::*move1)(int);
+	void (Game::*move2)(int);
+	game_init(mode);
+	switch (mode) {
+	case 1:
+		move1 = &Game::naive_ai_move;
+		move2 = &Game::normal_ai_move;
+		break;
+	case 2:
+		move1 = &Game::player_move;
+		move2 = &Game::player_move;
+		break;
+	case 3:
+		move1 = &Game::player_move;
+		move2 = &Game::naive_ai_move;
+		break;
+	case 4:
+		move1 = &Game::player_move;
+		move2 = &Game::simple_ai_move;
+		break;
+	case 5:
+		move1 = &Game::player_move;
+		move2 = &Game::normal_ai_move;
+		break;
+	default:
+		return;
+	}
 	while (1)
 	{
-		setfont(10, 8, "Consolas");
-		xyprintf(500, 450, "Player1");
-		tc = player_move(2);
-		Sleep(300);
-		check_check();
-		if (game_end)
+		while (1)
+		{
+			setfont(15, 12, "Consolas");
+			xyprintf(500, 450, "Player1");
+			if (mode == 1) Sleep(300);
+			(this->*move1)(2);
+			check_check();
+			if (game_end)
+				break;
+			bar(500, 450, 600, 480);
+			setfont(15, 12, "Consolas");
+			xyprintf(500, 50, "Player2");
+			if (mode == 1) Sleep(300);
+			(this->*move2)(1);
+			check_check();
+			if (game_end)
+				break;
+			bar(500, 50, 600, 80);
+			setfont(10, 8, "Consolas");
+		}
+		//选中"retry"后释放内存，重新申请对象，重置指针
+		if (good_game())
+		{
+			chess_clear();
+			game_init(mode);
+			game_end = 0;
+		}
+		else
 			break;
-		bar(500, 450, 600, 460);
-		setfont(10, 8, "Consolas");
-		xyprintf(500, 50, "Player2");
-		tc = normal_ai_move(1);
-		//tc = naive_ai_move(1);
-		Sleep(300);
-		check_check();
-		if (game_end)
-			break;
-		bar(500, 50, 600, 60);
-		setfont(10, 8, "Consolas");
 	}
-	good_game(tc);
-	//while (1);
 }
+//Debug用..
 void Game::test()
 {
-	game_init();
-	good_game(cmap[1][1]);
+	chess_init(2);
+	good_game();
+	while (1);
 }
+
 int main()
 {
 	Game newgame;
 	delay(60);
 	initgraph(640, 480);
-	setfont(37, 30, "Consolas");
-	//newgame.play(newgame.welcome());
-	newgame.play(1);
+	newgame.play(newgame.welcome());
+	//newgame.play(1);
 	closegraph();
 }
