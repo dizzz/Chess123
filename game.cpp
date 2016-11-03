@@ -48,15 +48,9 @@ public:
 	//设置信息的函数
 	void setPlayer(bool p) { player = p; }
 	void setStatus(int s) { status = s; }
-	void setXY(int tx, int ty) {
-		x = tx,y = ty;
-	}
-	void setXYS(int tx, int ty, int ts)	{
-		x = tx,y = ty,status = ts;
-	}
-	void setXYSP(int tx, int ty, int ts, bool tp) {
-		x = tx, y = ty, status = ts, player = tp;
-	}
+	void setXY(int tx, int ty) {x = tx,y = ty;}
+	void setXYS(int tx, int ty, int ts)	{x = tx,y = ty,status = ts;}
+	void setXYSP(int tx, int ty, int ts, bool tp) {x = tx, y = ty, status = ts, player = tp;}
 	//draw函数用于在棋盘上打印出棋子的身份，用EGE库实现
 	void draw() {
 		if (!status)
@@ -157,10 +151,8 @@ public:
 	void play(int mode);
 	int welcome();
 	void test();
-	~Game()
-	{
-		chess_clear();
-	}
+	//析构函数调用chess_clear删除动态申请的对象
+	~Game(){chess_clear();}
 };
 //"骑士"类
 class Knight :public Chess
@@ -267,12 +259,10 @@ bool Knight::check(bool bo) {
 	int tx, ty;
 	bool flag = 0;
 	v.clear();
-	for (int i = 0; i < 8; i++)
-	{
+	for (int i = 0; i < 8; i++){
 		tx = Chess::getX() + nextx[i];
 		ty = Chess::getY() + nexty[i];
-		if (moveable(tx, ty))
-		{
+		if (moveable(tx, ty)){
 			if (cmap[tx][ty]->getPos() == 'K')
 				flag = 1;
 			if (bo)
@@ -298,12 +288,10 @@ bool King::check(bool bo)
 	int tx, ty;
 	bool flag = 0;
 	v.clear();
-	for (int i = 0; i < 8; i++)
-	{
+	for (int i = 0; i < 8; i++){
 		tx = Chess::getX() + nextx[i];
 		ty = Chess::getY() + nexty[i];
-		if (moveable(tx, ty))
-		{
+		if (moveable(tx, ty)){
 			if (bo)
 				v.push_back(make_pair(tx, ty));
 			if (cmap[tx][ty]->getPos() == 'K')
@@ -324,15 +312,13 @@ bool Queen::moveable(int mx, int my)
 	int minx = min(tx, mx);
 	int maxy = max(ty, my);
 	int miny = min(ty, my);
-	if (ty == my)
-	{
+	if (ty == my){
 		for (int i = minx + 1; i < maxx; i++)
 			if (cmap[i][ty]->getStatus() != 0)
 				return false;
 		return true;
 	}
-	if (tx == mx)
-	{
+	if (tx == mx){
 
 		for (int i = miny + 1; i < maxy; i++)
 			if (cmap[tx][i]->getStatus() != 0)
@@ -341,16 +327,12 @@ bool Queen::moveable(int mx, int my)
 	}
 	if (maxx - minx != maxy - miny)
 		return false;
-	if ((mx - tx)*(my - ty) > 0)
-	{
+	if ((mx - tx)*(my - ty) > 0){
 		for (int i = minx + 1; i < maxx; i++)
 			if (cmap[i][i - minx + miny]->getStatus() != 0)
 				return false;
 		return true;
-	}
-	else
-	{
-
+	}else{
 		for (int i = 1; i < maxx - minx; i++)
 			if (cmap[maxx - i][miny + i]->getStatus() != 0)
 				return false;
@@ -363,12 +345,10 @@ bool Queen::check(bool bo)
 	int tx, ty;
 	bool flag = 0;
 	v.clear();
-	for (int i = 0; i < 8; i++)
-	{
+	for (int i = 0; i < 8; i++){
 		tx = Chess::getX() + nextx[i];
 		ty = Chess::getY() + nexty[i];
-		while (moveable(tx, ty))
-		{
+		while (moveable(tx, ty)){
 			if (bo)
 				v.push_back(make_pair(tx, ty));
 			if (cmap[tx][ty]->getPos() == 'K')
@@ -391,15 +371,13 @@ bool Rook::moveable(int mx, int my)
 	int minx = min(tx, mx);
 	int maxy = max(ty, my);
 	int miny = min(ty, my);
-	if (ty == my)
-	{
+	if (ty == my){
 		for (int i = minx + 1; i < maxx; i++)
 			if (cmap[i][ty]->getStatus() != 0)
 				return false;
 		return true;
 	}
-	if (tx == mx)
-	{
+	if (tx == mx){
 		for (int i = miny + 1; i < maxy; i++)
 			if (cmap[tx][i]->getStatus() != 0)
 				return false;
@@ -412,12 +390,10 @@ bool Rook::check(bool bo)
 	int tx, ty;
 	bool flag = 0;
 	v.clear();
-	for (int i = 0; i < 4; i++)
-	{
+	for (int i = 0; i < 4; i++){
 		tx = Chess::getX() + nextx[i];
 		ty = Chess::getY() + nexty[i];
-		while (moveable(tx, ty))
-		{
+		while (moveable(tx, ty)){
 			if (bo)
 				v.push_back(make_pair(tx, ty));
 			if (cmap[tx][ty]->getPos() == 'K')
@@ -442,18 +418,14 @@ bool Bishop::moveable(int mx, int my)
 	int miny = min(ty, my);
 	if (maxx - minx != maxy - miny)
 		return false;
-	if ((mx - tx)*(my - ty) > 0)
-	{
-		for (int i = minx + 1; i < maxx; i++)
-		{
+	if ((mx - tx)*(my - ty) > 0){
+		for (int i = minx + 1; i < maxx; i++){
 			//xyprintf
 			if (cmap[i][i - minx + miny]->getStatus() != 0)
 				return false;
 		}
 		return true;
-	}
-	else
-	{
+	}else{
 		for (int i = 1; i < maxx - minx; i++)
 			if (cmap[maxx - i][miny + i]->getStatus() != 0)
 				return false;
@@ -465,19 +437,17 @@ bool Bishop::check(bool bo)
 	int tx, ty;
 	bool flag = 0;
 	v.clear();
-	for (int i = 0; i < 4; i++)
-	{
+	for (int i = 0; i < 4; i++){
 		tx = Chess::getX() + nextx[i];
 		ty = Chess::getY() + nexty[i];
-		while (moveable(tx, ty))
-		{
+		while (moveable(tx, ty)){
 			if (bo)
 				v.push_back(make_pair(tx, ty));
 			if (cmap[tx][ty]->getPos() == 'K')
 				flag = 1;
 			tx += nextx[i];
 			ty += nexty[i];
-		};
+		}
 	}
 	return flag;
 }
@@ -489,10 +459,8 @@ bool Pawn::moveable(int mx, int my)
 		return false;
 	if (getStatus() == 0)
 		return false;
-	if (getStatus() == 1)
-	{
-		if (tx == 2)
-		{
+	if (getStatus() == 1){
+		if (tx == 2){
 			if (mx == tx + 2 && my == ty&&cmap[mx][my]->getStatus() == 0)
 				return true;
 		}
@@ -501,19 +469,13 @@ bool Pawn::moveable(int mx, int my)
 		if (mx == tx + 1 && abs(my - ty) == 1 && cmap[mx][my]->getStatus() == 2)
 			return true;
 		return false;
-	}
-	else if (getStatus() == 2)
-	{
-		if (tx == 7)
-		{
+	}else if (getStatus() == 2) {
+		if (tx == 7) {
 			if (mx == tx - 2 && my == ty&&cmap[mx][my]->getStatus() == 0)
 				return true;
 		}
 		if (mx == tx - 1 && my == ty&&cmap[mx][my]->getStatus() == 0)
-		{
 			return true;
-		}
-
 		if (mx == tx - 1 && abs(my - ty) == 1 && cmap[mx][my]->getStatus() == 1)
 			return true;
 		return false;
@@ -541,8 +503,7 @@ void Pawn::Promotion()//升变
 	bool flag = 0;
 	Chess* newc;
 	//一般考虑王后的价值更大，所以AI控制的士兵升变时直接选择王后
-	if (this->getPlayer() == 1)
-	{
+	if (this->getPlayer() == 1){
 		newc = new Queen;
 		newc->setXYS(tx, ty, getStatus());
 		cmap[tx][ty] = newc;
@@ -564,10 +525,8 @@ void Pawn::Promotion()//升变
 	line(540, 280, 580, 280);
 	mouse_msg mouse = { 0 };
 	//鼠标选择升变后的身份
-	for (;; delay_jfps(60))
-	{
-		while (mousemsg())
-		{
+	for (;; delay_jfps(60)){
+		while (mousemsg()){
 			mouse = getmouse();
 			tmp = mmap[mouse.x][mouse.y];
 			if (mouse.is_up() && mouse.is_left())
@@ -592,23 +551,19 @@ void Pawn::Promotion()//升变
 				break;
 			}
 		}
-		if (flag)
-			break;
+		if (flag) break;
 	}
 	bar(510, 130, 630, 330);
-
 }
 bool Pawn::check(bool bo)
 {
 	int tx, ty;
 	bool flag = 0;
 	v.clear();
-	for (int i = 0; i < 6; i++)
-	{
+	for (int i = 0; i < 6; i++){
 		tx = Chess::getX() + nextx[i];
 		ty = Chess::getY() + nexty[i];
-		while (moveable(tx, ty))
-		{
+		while (moveable(tx, ty)){
 			if (bo)
 				v.push_back(make_pair(tx, ty));
 			if (cmap[tx][ty]->getPos() == 'K')
@@ -1099,7 +1054,7 @@ const int Game::xmap[6][8][8] = {
 	100,100,100,100,100,100,100,100
 };
 //深度优先搜索，使用了最大最小法，即考虑自己落子时偏向对自己最有利的局面，考虑对方时只考虑对对方最有利（对自己最不利）的局面,这里只搜索了三层
-//不过由于估值函数不够不够完善和可能存在的问题，效果并不理想 
+//不过由于估值函数不够不够完善和可能存在的问题，效果并不理想
 bool Game::dfs(int dep, int sc, int&t1, int&t2, int&t3, int&t4)
 {
 	int tx, ty, temp;
@@ -1518,16 +1473,14 @@ int Game::welcome()
 	setfont(70, 50, "Microsoft YaHei UI Light");
 	xyprintf(100, 100, "Chess123");
 	//实现线框的动画效果
-	for (int i = 0; i <= 240; i++)
-	{
+	for (int i = 0; i <= 240; i++){
 		putpixel(200 + i, 240, WHITE);
 		putpixel(200 + i, 440, WHITE);
 		putpixel(200, 240 + i * 5 / 6, WHITE);
 		putpixel(440, 240 + i * 5 / 6, WHITE);
 		Sleep(1);
 	}
-	for (int i = 0; i < 240; i++)
-	{
+	for (int i = 0; i < 240; i++){
 		putpixel(440 - i, 280, WHITE);
 		putpixel(200 + i, 320, WHITE);
 		putpixel(440 - i, 360, WHITE);
@@ -1543,15 +1496,12 @@ int Game::welcome()
 	mouse_msg mouse;
 	int tmp;
 	//同样鼠标点击区域进行了映射
-	for (;; delay_jfps(60))
-	{
-		while (mousemsg())
-		{
+	for (;; delay_jfps(60)){
+		while (mousemsg()){
 			mouse = getmouse();
 			tmp = mmap[mouse.x][mouse.y];
 			//xyprintf(10, 10, "%d", tmp);
-			if (mouse.is_up() && mouse.is_left())
-			{
+			if (mouse.is_up() && mouse.is_left()){
 				if (tmp < 0)
 					continue;
 				return tmp;
@@ -1567,21 +1517,18 @@ bool Game::good_game()
 	//擦除棋盘
 	setcolor(0xCECECE);
 	setfillcolor(0xCECECE);
-	for (int i = 1; i<=640; i++) 
-	{
+	for (int i = 1; i<=640; i++) {
 		fillellipse(dy*40+140, dx*40+60, i, i);
 		Sleep(2);
 	}
 	setcolor(0xBEBEBE);
 	setfillcolor(0xBEBEBE);
-	for (int i = 1; i <= 640; i++)
-	{
+	for (int i = 1; i <= 640; i++){
 		fillellipse(dy * 40 + 140, dx * 40 + 60, i, i);
 		Sleep(2);
 	}
 	//实现线框的动画效果
-	for (int i = 0; i <= 200; i++)
-	{
+	for (int i = 0; i <= 200; i++){
 		putpixel(540 + i, 400, EGERGB(0xff, 0xff, 0xff));
 		putpixel(540 + i, 440, EGERGB(0xff, 0xff, 0xff));
 		putpixel(540 + i, 478, EGERGB(0xff, 0xff, 0xff));
@@ -1596,13 +1543,10 @@ bool Game::good_game()
 	xyprintf(560, 450, "Exit");
 	mouse_msg mouse;
 	//菜单选项较少所以直接用if语句判断..
-	for (;; delay_jfps(60))
-	{
-		while (mousemsg())
-		{
+	for (;; delay_jfps(60)){
+		while (mousemsg()){
 			mouse = getmouse();
-			if (mouse.is_up() && mouse.is_left())
-			{
+			if (mouse.is_up() && mouse.is_left()){
 				if (540 < mouse.x&&mouse.x < 640 && 400 < mouse.y&&mouse.y < 440)
 					return true;
 				if (540 < mouse.x&&mouse.x < 640 && 440 < mouse.y&&mouse.y < 480)
@@ -1642,10 +1586,8 @@ void Game::play(int mode)
 	default:
 		return;
 	}
-	while(1)
-	{
-		while(1)
-		{
+	while(1){
+		while(1){
 			//表示落子的一方
 			setfont(15, 12, "Consolas");
 			xyprintf(50, 430, "Player1");
@@ -1667,8 +1609,7 @@ void Game::play(int mode)
 			setfont(10, 8, "Consolas");
 		}
 		//选中"retry"后释放内存，重新申请对象，重置指针
-		if (good_game())
-		{
+		if (good_game()){
 			chess_clear();
 			game_init(mode);
 			game_end = 0;
